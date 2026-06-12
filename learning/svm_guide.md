@@ -77,26 +77,33 @@ Let the training data be $\{(x_i, y_i)\}_{i=1}^n$ with $x_i \in \mathbb{R}^d$ an
 ### The functional margin and the rescaling trick
 
 For any point $x_i$, its signed distance to the hyperplane $\{x : w^\top x + b = 0\}$ is
+
 $$
 \text{dist}(x_i) = \frac{w^\top x_i + b}{\|w\|}.
 $$
+
 The *signed* distance becomes positive when $x_i$ is on the $+1$ side and negative on the $-1$ side. Multiplying by $y_i$ gives the geometric margin:
+
 $$
 \gamma_i = \frac{y_i (w^\top x_i + b)}{\|w\|}.
 $$
 
 Notice that $(w, b)$ and $(cw, cb)$ for any $c > 0$ define the *same hyperplane*. The functional margin $y_i(w^\top x_i + b)$ scales with $c$, but the geometric margin does not. This gives us a useful normalization: we are free to choose $(w, b)$ so that the smallest functional margin equals $1$:
+
 $$
 \min_i y_i(w^\top x_i + b) = 1.
 $$
+
 Under this normalization, the geometric margin equals $1/\|w\|$. So **maximizing the margin is equivalent to minimizing $\|w\|$** (or equivalently $\frac{1}{2}\|w\|^2$, a convenient convex differentiable objective).
 
 ### Hard-margin primal
 
 The hard-margin SVM is the convex quadratic program:
+
 $$
 \boxed{\min_{w, b} \; \tfrac{1}{2}\|w\|^2 \quad \text{subject to} \quad y_i(w^\top x_i + b) \geq 1, \; i = 1, \ldots, n.}
 $$
+
 The objective is strictly convex in $w$; the constraints are linear. If the data is linearly separable, this problem has a unique minimizer in $w$ (the bias $b$ is also unique once $w$ is fixed).
 
 ### Soft-margin primal
@@ -109,9 +116,11 @@ When the data is not separable, we introduce **slack variables** $\xi_i \geq 0$,
 - $\xi_i > 1$: point is misclassified.
 
 The soft-margin SVM is:
+
 $$
 \boxed{\min_{w, b, \xi} \; \tfrac{1}{2}\|w\|^2 + C\sum_{i=1}^n \xi_i \quad \text{s.t.} \quad y_i(w^\top x_i + b) \geq 1 - \xi_i, \; \xi_i \geq 0.}
 $$
+
 The hyperparameter $C > 0$ controls the trade-off:
 
 - Large $C$: heavy penalty on slack, so the model tries hard to classify every training point correctly. This approaches hard-margin behavior and can overfit.
@@ -120,15 +129,19 @@ The hyperparameter $C > 0$ controls the trade-off:
 ### Hinge-loss reformulation
 
 We can eliminate the slack variables explicitly. The constraint $\xi_i \geq \max(0, 1 - y_i(w^\top x_i + b))$ is tight at the optimum (we always push $\xi_i$ down as far as allowed). Substituting gives the **unconstrained hinge-loss form**:
+
 $$
 \min_{w, b} \; \tfrac{1}{2}\|w\|^2 + C\sum_{i=1}^n \max\bigl(0, \; 1 - y_i(w^\top x_i + b)\bigr).
 $$
+
 This is the form most often seen in modern ML texts. The hinge loss $\max(0, 1 - y f(x))$ is convex, piecewise linear, and zero whenever $y f(x) \geq 1$ (i.e., the point is correctly classified with margin at least 1). It is *not* differentiable at $y f(x) = 1$, but subgradient methods or smoothed variants work fine.
 
 Dividing through by $C$ and letting $\lambda = 1/(nC)$ gives an equivalent form
+
 $$
 \min_{w, b} \; \frac{1}{n}\sum_{i=1}^n \max\bigl(0, 1 - y_i(w^\top x_i + b)\bigr) + \lambda \|w\|^2,
 $$
+
 making the connection to standard regularized risk minimization explicit: $\ell_2$ regularization plus the hinge loss.
 
 ### Connecting math to intuition
@@ -268,11 +281,13 @@ The solution to the dual, combined with the stationarity equations, gives us the
 ### Deriving the dual (soft margin)
 
 Start with the primal:
+
 $$
 \min_{w, b, \xi} \tfrac{1}{2}\|w\|^2 + C\sum_i \xi_i, \quad \text{s.t.} \quad y_i(w^\top x_i + b) \geq 1 - \xi_i, \; \xi_i \geq 0.
 $$
 
 Introduce Lagrange multipliers $\alpha_i \geq 0$ for the margin constraints and $\mu_i \geq 0$ for the slack non-negativity:
+
 $$
 \mathcal{L}(w, b, \xi, \alpha, \mu) = \tfrac{1}{2}\|w\|^2 + C\sum_i \xi_i - \sum_i \alpha_i\bigl[y_i(w^\top x_i + b) - 1 + \xi_i\bigr] - \sum_i \mu_i \xi_i.
 $$
@@ -280,25 +295,31 @@ $$
 The dual function is $g(\alpha, \mu) = \min_{w, b, \xi} \mathcal{L}$. Take gradients:
 
 **$\partial \mathcal{L}/\partial w = 0$**:
+
 $$
 w - \sum_i \alpha_i y_i x_i = 0 \quad\Longrightarrow\quad w = \sum_i \alpha_i y_i x_i. \tag{★}
 $$
 
 **$\partial \mathcal{L}/\partial b = 0$**:
+
 $$
 -\sum_i \alpha_i y_i = 0 \quad\Longrightarrow\quad \sum_i \alpha_i y_i = 0.
 $$
 
 **$\partial \mathcal{L}/\partial \xi_i = 0$**:
+
 $$
 C - \alpha_i - \mu_i = 0 \quad\Longrightarrow\quad \mu_i = C - \alpha_i.
 $$
+
 Combined with $\mu_i \geq 0$, this gives $0 \leq \alpha_i \leq C$ (called the **box constraint**).
 
 Substitute (★) back into the Lagrangian. The $\|w\|^2$ term becomes
+
 $$
 \tfrac{1}{2}\|w\|^2 = \tfrac{1}{2}\sum_{i,j} \alpha_i \alpha_j y_i y_j x_i^\top x_j.
 $$
+
 The term $\sum_i \alpha_i y_i w^\top x_i$ becomes $\sum_{i,j}\alpha_i\alpha_j y_i y_j x_i^\top x_j$. The bias terms cancel (because $\sum_i \alpha_i y_i = 0$). The slack-related terms $C\sum_i \xi_i - \sum_i\alpha_i\xi_i - \sum_i\mu_i\xi_i$ collapse to 0 using $\mu_i = C - \alpha_i$. After simplification:
 
 $$
@@ -329,17 +350,21 @@ From complementary slackness we read off the **structure of support vectors**:
 ### Recovering $b$
 
 Once we have $\alpha$, $w$ is given by (★). For $b$, pick any margin SV (any $i$ with $0 < \alpha_i < C$). Then $y_i(w^\top x_i + b) = 1$, so
+
 $$
 b = y_i - w^\top x_i = y_i - \sum_j \alpha_j y_j x_j^\top x_i.
 $$
+
 For numerical stability, average over all margin SVs.
 
 ### Prediction in dual form
 
 The decision function is
+
 $$
 f(x) = w^\top x + b = \sum_i \alpha_i y_i x_i^\top x + b.
 $$
+
 Only the support vectors (nonzero $\alpha_i$) contribute. This is the **sparsity property**, and it's what makes prediction efficient.
 
 ### Mapping math to intuition
@@ -355,14 +380,17 @@ Let's dualize a tiny 1D problem.
 Three points: $x_1 = -1, y_1 = -1$; $x_2 = +1, y_2 = +1$; $x_3 = +2, y_3 = +1$. Hard margin.
 
 The inner product matrix:
+
 $$
 K = \begin{pmatrix} 1 & -1 & -2 \\ -1 & 1 & 2 \\ -2 & 2 & 4 \end{pmatrix}, \quad y_i y_j K_{ij} = \begin{pmatrix} 1 & 1 & 2 \\ 1 & 1 & 2 \\ 2 & 2 & 4 \end{pmatrix}.
 $$
 
 Dual:
+
 $$
 \max_\alpha \; (\alpha_1 + \alpha_2 + \alpha_3) - \tfrac{1}{2}\bigl[\alpha_1^2 + \alpha_2^2 + 4\alpha_3^2 + 2\alpha_1\alpha_2 + 4\alpha_1\alpha_3 + 4\alpha_2\alpha_3\bigr]
 $$
+
 subject to $\alpha_i \geq 0$ and $-\alpha_1 + \alpha_2 + \alpha_3 = 0$.
 
 **Intuition**: $x_1$ and $x_2$ are the closest opposing points; we expect $x_3$ (further from the boundary) to have $\alpha_3 = 0$. Let's check by assuming $\alpha_3 = 0$ and solving.
@@ -474,13 +502,17 @@ A kernel is a similarity measure: $k(x, x')$ is large when $x$ and $x'$ are "sim
 ### Mercer's theorem (classical form)
 
 Let $\mathcal{X}$ be a compact subset of $\mathbb{R}^d$, and let $k : \mathcal{X}\times\mathcal{X}\to\mathbb{R}$ be continuous and symmetric. Define the integral operator $T_k : L^2(\mathcal{X}) \to L^2(\mathcal{X})$ by
+
 $$
 (T_k f)(x) = \int_\mathcal{X} k(x, x') f(x') \, dx'.
 $$
+
 If $T_k$ is positive semi-definite — i.e., $\int\int k(x, x') f(x) f(x') dx dx' \geq 0$ for all $f \in L^2(\mathcal{X})$ — then there exist an orthonormal sequence of eigenfunctions $\{\psi_i\}$ of $T_k$ and corresponding non-negative eigenvalues $\{\lambda_i\}$ such that
+
 $$
 k(x, x') = \sum_{i=1}^\infty \lambda_i \psi_i(x) \psi_i(x'),
 $$
+
 uniformly convergent on $\mathcal{X}\times\mathcal{X}$.
 
 **Implication**: define $\phi(x) = (\sqrt{\lambda_1}\psi_1(x), \sqrt{\lambda_2}\psi_2(x), \ldots)$. Then $k(x, x') = \langle \phi(x), \phi(x')\rangle_{\ell^2}$. So every PSD kernel *is* an inner product in some feature space.
@@ -507,46 +539,59 @@ These closure properties let us build complex kernels from simple ones.
 $k(x, x') = (x^\top x' + 1)^2 = (x_1 x'_1 + x_2 x'_2 + 1)^2$.
 
 Expanding:
+
 $$
 = x_1^2 x_1'^2 + x_2^2 x_2'^2 + 2 x_1 x_2 x_1' x_2' + 2 x_1 x_1' + 2 x_2 x_2' + 1.
 $$
 
 This equals $\phi(x)^\top \phi(x')$ with
+
 $$
 \phi(x) = (x_1^2,\; x_2^2,\; \sqrt{2} x_1 x_2,\; \sqrt{2} x_1,\; \sqrt{2} x_2,\; 1)^\top.
 $$
+
 A 6-dimensional feature space, computed by a single $O(d)$ inner product.
 
 ### The RBF kernel and its infinite feature space
 
 $k(x, x') = e^{-\gamma\|x - x'\|^2}$. Using $\|x - x'\|^2 = \|x\|^2 + \|x'\|^2 - 2x^\top x'$:
+
 $$
 k(x, x') = e^{-\gamma\|x\|^2} e^{-\gamma\|x'\|^2} e^{2\gamma x^\top x'}.
 $$
+
 Expanding the Taylor series of $e^{2\gamma x^\top x'} = \sum_{k=0}^\infty \frac{(2\gamma)^k (x^\top x')^k}{k!}$, we see the RBF kernel contains polynomial kernels of all degrees, weighted by factorials. Its feature space is infinite-dimensional.
 
 ### Kernelized SVM
 
 Replace every occurrence of $x_i^\top x_j$ in the dual with $k(x_i, x_j)$:
+
 $$
 \max_\alpha \sum_i \alpha_i - \tfrac{1}{2}\sum_{i,j}\alpha_i\alpha_j y_i y_j k(x_i, x_j), \quad 0 \leq \alpha_i \leq C, \; \sum_i \alpha_i y_i = 0.
 $$
+
 Prediction:
+
 $$
 f(x) = \sum_{i\in SV} \alpha_i y_i k(x_i, x) + b.
 $$
+
 $w$ is not explicitly computed — it lives in the (possibly infinite-dimensional) feature space. We only ever manipulate kernel evaluations.
 
 ### Representer theorem
 
 For a broad class of regularized loss minimization problems over RKHS,
+
 $$
 \min_{f \in \mathcal{H}_k} \frac{1}{n}\sum_i L(y_i, f(x_i)) + \lambda \|f\|_{\mathcal{H}_k}^2,
 $$
+
 the optimal $f^\star$ lies in the $n$-dimensional subspace spanned by $\{k(\cdot, x_i)\}_{i=1}^n$:
+
 $$
 f^\star(x) = \sum_{i=1}^n \beta_i k(x_i, x).
 $$
+
 This is why kernel methods reduce to finite-dimensional problems despite living in infinite-dimensional spaces. The SVM is a special case with $L$ = hinge loss.
 
 ## 3.4 Worked Example
@@ -558,6 +603,7 @@ Training points: $x_1 = 0, y_1 = +1$; $x_2 = 2, y_2 = -1$; $x_3 = 4, y_3 = +1$.
 These are not linearly separable in 1D. Let's use RBF with $\gamma = 1$.
 
 Kernel matrix:
+
 $$
 K = \begin{pmatrix} 1 & e^{-4} & e^{-16} \\ e^{-4} & 1 & e^{-4} \\ e^{-16} & e^{-4} & 1 \end{pmatrix} \approx \begin{pmatrix} 1 & 0.0183 & 10^{-7} \\ 0.0183 & 1 & 0.0183 \\ 10^{-7} & 0.0183 & 1 \end{pmatrix}.
 $$
@@ -565,13 +611,17 @@ $$
 The key point: $K_{12}$ and $K_{23}$ (opposite-class pairs) are small; $K_{13}$ (same-class but far apart) is also small. With such sharp kernel (high $\gamma$), each point is nearly "isolated," and the model essentially memorizes them.
 
 If we set $\gamma = 0.1$, the kernel matrix is smoother:
+
 $$
 K \approx \begin{pmatrix} 1 & 0.67 & 0.20 \\ 0.67 & 1 & 0.67 \\ 0.20 & 0.67 & 1 \end{pmatrix},
 $$
+
 and now the geometry is more interesting. At a new point $x = 1$:
+
 $$
 k(x, x_1) = e^{-0.1} \approx 0.905, \quad k(x, x_2) = e^{-0.1} \approx 0.905, \quad k(x, x_3) = e^{-0.9} \approx 0.407.
 $$
+
 So $x = 1$ is similar to both $x_1$ (positive) and $x_2$ (negative), suggesting it's near the boundary. The classification depends on the $\alpha$ values (and signs), which the solver determines.
 
 ### Qualitative effect of $\gamma$
@@ -678,17 +728,21 @@ At optimum:
 ### Fraction of SVs as a lower bound on error
 
 There is a classical result: for any trained SVM, the leave-one-out cross-validation error is upper-bounded by the fraction of support vectors, $|SV|/n$. Intuitively, only SVs affect the classifier; removing a non-SV leaves the decision function unchanged, so non-SVs are correctly classified under leave-one-out. Therefore:
+
 $$
 \text{LOO error} \leq \frac{|SV|}{n}.
 $$
+
 This gives a cheap generalization estimate — though usually loose, since not all SVs flip under leave-one-out.
 
 ### Geometric derivation of margin = $1/\|w\|$
 
 Take any two points on opposite margin fences: $w^\top x_+ + b = 1$ and $w^\top x_- + b = -1$. Subtract: $w^\top(x_+ - x_-) = 2$. The vector from one fence to the other, projected onto the unit normal $w/\|w\|$, has length
+
 $$
 \frac{w^\top(x_+ - x_-)}{\|w\|} = \frac{2}{\|w\|}.
 $$
+
 So the *total* margin width is $2/\|w\|$, and the half-margin (from hyperplane to each fence) is $1/\|w\|$. ✓
 
 ### Structure of $w$ in kernel form
@@ -767,9 +821,11 @@ These extensions share the DNA of the original SVM — margin maximization, hing
 ### Formulation
 
 Instead of $C$, introduce $\nu \in (0, 1]$ and a margin variable $\rho$ to be optimized:
+
 $$
 \min_{w, b, \xi, \rho} \; \tfrac{1}{2}\|w\|^2 - \nu\rho + \tfrac{1}{n}\sum_i \xi_i
 $$
+
 $$
 \text{s.t.} \quad y_i(w^\top x_i + b) \geq \rho - \xi_i, \; \xi_i \geq 0, \; \rho \geq 0.
 $$
@@ -808,9 +864,11 @@ Given only positive examples (or unlabeled "normal" data), learn a function that
 ### Schölkopf's formulation
 
 Separate the data from the origin in feature space with maximum margin:
+
 $$
 \min_{w, \xi, \rho} \; \tfrac{1}{2}\|w\|^2 + \tfrac{1}{\nu n}\sum_i \xi_i - \rho
 $$
+
 $$
 \text{s.t.} \quad w^\top \phi(x_i) \geq \rho - \xi_i, \; \xi_i \geq 0.
 $$
@@ -848,17 +906,21 @@ Standard multiclass doesn't scale ($|\mathcal{Y}|$ exponential in sequence lengt
 ### Joint feature map
 
 Define $\Psi(x, y)$ jointly over input and output. The prediction rule is
+
 $$
 \hat{y}(x) = \arg\max_{y \in \mathcal{Y}} w^\top \Psi(x, y).
 $$
+
 This generalizes the binary SVM's $\mathrm{sign}(w^\top x + b)$.
 
 ### Margin rescaling formulation (Tsochantaridis et al., 2005)
 
 Given a **loss function** $\Delta(y, y')$ quantifying how bad predicting $y'$ is when true label is $y$ (e.g., Hamming loss for sequences):
+
 $$
 \min_{w, \xi} \tfrac{1}{2}\|w\|^2 + \frac{C}{n}\sum_i \xi_i
 $$
+
 $$
 \text{s.t.} \quad \forall i, \forall y' \neq y_i: \; w^\top [\Psi(x_i, y_i) - \Psi(x_i, y')] \geq \Delta(y_i, y') - \xi_i.
 $$
@@ -924,6 +986,7 @@ There are also "true multiclass" SVMs (Crammer-Singer, Weston-Watkins) that solv
 ### Method
 
 For each class $c \in \{1, \ldots, K\}$, train a binary SVM $f_c(x) = w_c^\top x + b_c$ with $+1$ labels for class $c$ and $-1$ labels for all other classes. Predict
+
 $$
 \hat{y}(x) = \arg\max_c f_c(x).
 $$
@@ -994,11 +1057,13 @@ Large $K$ where OvO's prediction cost is prohibitive, but OvA accuracy is insuff
 ### Idea
 
 Define $K$ weight vectors $w_1, \ldots, w_K$ and the decision rule $\hat{y}(x) = \arg\max_c w_c^\top x$. The training objective demands that for each training point $(x_i, y_i)$:
+
 $$
 w_{y_i}^\top x_i \geq w_c^\top x_i + 1 - \xi_i \quad \forall c \neq y_i.
 $$
 
 The loss is the multiclass hinge:
+
 $$
 L(w, x_i, y_i) = \max_{c \neq y_i} \max(0, 1 + w_c^\top x_i - w_{y_i}^\top x_i).
 $$
@@ -1081,11 +1146,13 @@ $C$ balances margin width against classification violations. Small $C$: heavy re
 ### Q6. Derive the dual of the soft-margin SVM.
 
 Primal:
+
 $$
 \min_{w, b, \xi} \tfrac{1}{2}\|w\|^2 + C\sum_i \xi_i, \; \text{s.t. } y_i(w^\top x_i + b) \geq 1 - \xi_i, \; \xi_i \geq 0.
 $$
 
 Lagrangian with $\alpha_i \geq 0, \mu_i \geq 0$:
+
 $$
 \mathcal{L} = \tfrac{1}{2}\|w\|^2 + C\sum \xi_i - \sum \alpha_i[y_i(w^\top x_i + b) - 1 + \xi_i] - \sum \mu_i \xi_i.
 $$
@@ -1093,6 +1160,7 @@ $$
 Set $\nabla_w \mathcal{L} = 0$: $w = \sum \alpha_i y_i x_i$. Set $\partial_b \mathcal{L} = 0$: $\sum \alpha_i y_i = 0$. Set $\partial_{\xi_i} \mathcal{L} = 0$: $\alpha_i + \mu_i = C$, so $0 \leq \alpha_i \leq C$.
 
 Substitute back. The $\|w\|^2$ becomes $\sum_{i,j}\alpha_i\alpha_j y_iy_j x_i^\top x_j$; combined with the $-\sum\alpha_i y_i w^\top x_i$ term and simplification:
+
 $$
 \max_\alpha \sum_i \alpha_i - \tfrac{1}{2}\sum_{i,j}\alpha_i\alpha_j y_iy_j x_i^\top x_j, \; \text{s.t. } 0 \leq \alpha_i \leq C, \; \sum\alpha_i y_i = 0.
 $$
@@ -1113,9 +1181,11 @@ From these we read off:
 ### Q8. Prove that the geometric margin of an SVM is $1/\|w\|$ at optimum.
 
 Under the normalization $\min_i y_i(w^\top x_i + b) = 1$, for margin SVs we have $y_i(w^\top x_i + b) = 1$, so
+
 $$
 \text{distance to hyperplane} = \frac{|w^\top x_i + b|}{\|w\|} = \frac{1}{\|w\|}.
 $$
+
 Since margin SVs achieve the minimum distance, this is the geometric margin.
 
 ### Q9. Explain Mercer's theorem and why it matters for SVMs.
@@ -1136,21 +1206,27 @@ For linear SVMs with $n \gg d$, the primal is actually preferred — dual advant
 ### Q11. Show that the RBF kernel corresponds to an infinite-dimensional feature space.
 
 $k(x, x') = e^{-\gamma\|x-x'\|^2} = e^{-\gamma\|x\|^2}e^{-\gamma\|x'\|^2}e^{2\gamma x^\top x'}$. Taylor-expand the last factor:
+
 $$
 e^{2\gamma x^\top x'} = \sum_{k=0}^\infty \frac{(2\gamma)^k (x^\top x')^k}{k!}.
 $$
+
 Each $(x^\top x')^k$ is a polynomial kernel of degree $k$, with feature space $\mathbb{R}^{\binom{d+k-1}{k}}$. Summing over all $k$ gives an infinite direct sum, so the RBF feature space is infinite-dimensional.
 
 ### Q12. Derive how to recover the bias $b$ from the dual solution.
 
 For any margin SV (one with $0 < \alpha_i < C$), complementary slackness gives $\xi_i = 0$ and $y_i(w^\top x_i + b) = 1$. Solving for $b$:
+
 $$
 b = y_i - w^\top x_i = y_i - \sum_j \alpha_j y_j x_j^\top x_i \quad (\text{or } \sum_j \alpha_j y_j k(x_j, x_i) \text{ kernelized}).
 $$
+
 In practice, average over all margin SVs for numerical stability:
+
 $$
 b = \frac{1}{|M|}\sum_{i \in M}\bigl(y_i - \sum_j \alpha_j y_j k(x_j, x_i)\bigr),
 $$
+
 where $M = \{i : 0 < \alpha_i < C\}$.
 
 ## Applied Questions
@@ -1265,9 +1341,11 @@ Monitor for drift via: tracking input feature distributions (e.g., PSI, KL diver
 ### Q24. Why does the SVM's margin appear in the generalization bound, and what does that imply?
 
 Generalization bounds based on **margin theory** (e.g., Bartlett, Shawe-Taylor) show that the test error of a margin-maximizing classifier is bounded by something like
+
 $$
 \hat{R}_\gamma(h) + O\Bigl(\sqrt{\tfrac{R^2/\gamma^2}{n}}\Bigr),
 $$
+
 where $\hat{R}_\gamma$ is the empirical margin loss, $R$ is the data radius, $\gamma$ the margin. Crucially, this bound doesn't directly depend on the ambient dimension $d$ — only on the ratio $R/\gamma$.
 
 Implication: even in very high-dimensional feature spaces (e.g., RBF's infinite-dim space), if we maintain a large margin on training data, generalization can remain controlled. This is a theoretical justification for kernel SVMs despite their huge implicit feature spaces.
@@ -1275,9 +1353,11 @@ Implication: even in very high-dimensional feature spaces (e.g., RBF's infinite-
 ### Q25. Explain the representer theorem and why SVMs benefit from it.
 
 Representer theorem: for a loss minimization problem of the form
+
 $$
 \min_{f \in \mathcal{H}_k} \frac{1}{n}\sum_i L(y_i, f(x_i)) + \lambda \Omega(\|f\|_{\mathcal{H}_k}),
 $$
+
 with $\Omega$ monotonically increasing, the optimal $f^\star$ lies in the $n$-dimensional span of $\{k(\cdot, x_i)\}$, i.e., $f^\star(x) = \sum_i \beta_i k(x_i, x)$.
 
 Why SVMs benefit: SVM objective is regularized hinge loss in RKHS. Without the representer theorem, we'd need to optimize over an infinite-dimensional space. With it, we optimize over $n$ coefficients — a finite, tractable problem. The $\beta_i$ here correspond (up to signs) to $\alpha_i y_i$ in the SVM dual.

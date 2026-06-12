@@ -95,49 +95,67 @@ These all give the same answer. The first is a max problem, the second is a min 
 ### 1.3 Mathematical Formulation
 
 Let $X \in \mathbb{R}^{n \times d}$ be centered ($\sum_i x_i = 0$). The sample covariance is
+
 $$
 \Sigma = \frac{1}{n-1} X^\top X \in \mathbb{R}^{d \times d}.
 $$
+
 This is symmetric positive semi-definite, so it has $d$ real non-negative eigenvalues $\lambda_1 \geq \lambda_2 \geq \dots \geq \lambda_d \geq 0$ with corresponding orthonormal eigenvectors $v_1, \dots, v_d$.
 
 **Derivation (max-variance view).** The variance of the projection $w^\top x$ (for a unit vector $w$) is
+
 $$
 \mathrm{Var}(w^\top x) = w^\top \Sigma w.
 $$
+
 We want to maximize this subject to $\|w\|=1$. Use a Lagrange multiplier:
+
 $$
 \mathcal{L}(w, \lambda) = w^\top \Sigma w - \lambda(w^\top w - 1).
 $$
+
 Setting $\nabla_w \mathcal{L} = 0$:
+
 $$
 2\Sigma w - 2\lambda w = 0 \implies \Sigma w = \lambda w.
 $$
+
 So $w$ must be an eigenvector of $\Sigma$, and the variance is $w^\top \Sigma w = \lambda$. The maximum is achieved by the eigenvector with the largest eigenvalue: $w_1 = v_1$, variance $\lambda_1$. Subsequent PCs come from imposing orthogonality to previous ones; the same Lagrangian machinery gives $w_j = v_j$.
 
 **Derivation (min-reconstruction view).** Let $W_k = [w_1, \dots, w_k] \in \mathbb{R}^{d \times k}$ have orthonormal columns. The projection of $x$ onto the subspace spanned by $W_k$ is $W_k W_k^\top x$. The reconstruction error is
+
 $$
 J(W_k) = \frac{1}{n}\sum_i \|x_i - W_k W_k^\top x_i\|^2.
 $$
+
 Using $\|x\|^2 = \|W_k W_k^\top x\|^2 + \|x - W_k W_k^\top x\|^2$ (Pythagoras, since the two components are orthogonal),
+
 $$
 J(W_k) = \frac{1}{n}\sum_i \|x_i\|^2 - \frac{1}{n}\sum_i \|W_k^\top x_i\|^2 = \mathrm{const} - \mathrm{tr}(W_k^\top \Sigma W_k).
 $$
+
 Minimizing $J$ is equivalent to maximizing $\mathrm{tr}(W_k^\top \Sigma W_k)$, which is again maximized by choosing the top $k$ eigenvectors.
 
 **SVD approach.** Any real matrix $X$ has a singular value decomposition
+
 $$
 X = U S V^\top,
 $$
+
 where $U \in \mathbb{R}^{n \times n}$ and $V \in \mathbb{R}^{d \times d}$ are orthogonal, and $S$ is rectangular-diagonal with non-negative entries $\sigma_1 \geq \sigma_2 \geq \dots \geq 0$ (the singular values). Then
+
 $$
 X^\top X = V S^\top S V^\top,
 $$
+
 so columns of $V$ are eigenvectors of $X^\top X$ (and thus of $\Sigma$, up to the $n-1$ scaling), and eigenvalues are $\lambda_j = \sigma_j^2 / (n-1)$.
 
 The scores (projected data) are
+
 $$
 Z = X V_k = U_k S_k,
 $$
+
 where $V_k$, $U_k$, $S_k$ are the leading $k$ columns / block.
 
 **Why SVD is preferred in practice:**
@@ -145,12 +163,15 @@ where $V_k$, $U_k$, $S_k$ are the leading $k$ columns / block.
 - Works when $d > n$ (e.g., 1000 images of $10^6$ pixels each): then $X^\top X$ is $10^6 \times 10^6$ but you only need the rank $\leq n$ non-trivial part. SVD handles this; or use the "economy" SVD, or the dual trick (eigendecompose $X X^\top \in \mathbb{R}^{n \times n}$ instead).
 
 **Explained variance.** The total variance of centered data is $\mathrm{tr}(\Sigma) = \sum_j \lambda_j$. The fraction explained by the first $k$ PCs is
+
 $$
 \mathrm{EV}(k) = \frac{\sum_{j=1}^k \lambda_j}{\sum_{j=1}^d \lambda_j}.
 $$
+
 A plot of $\mathrm{EV}(k)$ vs. $k$ (or of individual $\lambda_j$) is called a **scree plot**. The classic heuristic: choose $k$ at the "elbow," or to capture e.g. 95% of variance.
 
 **Whitening.** After projection, dividing each component by $\sqrt{\lambda_j}$ gives a representation with unit covariance. This is called PCA whitening:
+
 $$
 z_{\text{white}} = S_k^{-1} U_k^\top x \cdot \sqrt{n-1}.
 $$
@@ -165,6 +186,7 @@ $(-1.5, -1.5), (-0.5, -0.5), (0.5, 0.5), (1.5, 1.5)$.
 All points lie exactly on the line $y = x$ (after centering). We expect PC1 to be $\frac{1}{\sqrt{2}}(1, 1)$ and all variance in that direction.
 
 **Step 2: Covariance.**
+
 $$
 \Sigma = \frac{1}{3}\begin{pmatrix} \sum x_i^2 & \sum x_i y_i \\ \sum x_i y_i & \sum y_i^2 \end{pmatrix} = \frac{1}{3}\begin{pmatrix} 5 & 5 \\ 5 & 5 \end{pmatrix} = \begin{pmatrix} 5/3 & 5/3 \\ 5/3 & 5/3 \end{pmatrix}.
 $$
@@ -355,9 +377,11 @@ Concrete ML motivations:
 - **Total scatter**: $S_T = \sum_i (x_i - \mu)(x_i - \mu)^\top = S_W + S_B$ (a standard decomposition).
 
 **Goal.** Find a projection matrix $W \in \mathbb{R}^{d \times k}$ that maximizes
+
 $$
 J(W) = \frac{|W^\top S_B W|}{|W^\top S_W W|}.
 $$
+
 Maximize between-class spread; minimize within-class spread.
 
 **Assumptions.**
@@ -375,12 +399,15 @@ Maximize between-class spread; minimize within-class spread.
 ### 2.3 Mathematical Formulation
 
 **Two-class case (Fisher's original formulation).** For a single direction $w$:
+
 $$
 J(w) = \frac{w^\top S_B w}{w^\top S_W w}.
 $$
+
 Set gradient to zero: $2 S_B w (w^\top S_W w) - 2 S_W w (w^\top S_B w) = 0$, equivalently $S_B w = \lambda S_W w$ where $\lambda = J(w)$. This is a **generalized eigenvalue problem**. If $S_W$ is invertible, it becomes $S_W^{-1} S_B w = \lambda w$ — a standard eigenvalue problem.
 
 In the two-class case, $S_B = (\mu_1 - \mu_2)(\mu_1 - \mu_2)^\top$ is rank 1, so there's only one non-trivial solution:
+
 $$
 w^* \propto S_W^{-1}(\mu_1 - \mu_2).
 $$
@@ -388,13 +415,17 @@ $$
 **Multi-class case.** The top $k \leq c-1$ generalized eigenvectors of $S_B v = \lambda S_W v$ give the discriminant directions.
 
 **Connection to Gaussian classification.** Assume $p(x|y=k) = \mathcal{N}(\mu_k, \Sigma)$ with shared $\Sigma$, priors $\pi_k$. The log-posterior is
+
 $$
 \log p(y=k|x) \propto -\frac{1}{2}(x-\mu_k)^\top \Sigma^{-1}(x - \mu_k) + \log \pi_k.
 $$
+
 Expanding and dropping terms not depending on $k$:
+
 $$
 \delta_k(x) = x^\top \Sigma^{-1}\mu_k - \frac{1}{2}\mu_k^\top \Sigma^{-1}\mu_k + \log \pi_k.
 $$
+
 This is linear in $x$ — hence "Linear" Discriminant Analysis. The decision boundary between classes $k$ and $l$ is $\delta_k(x) = \delta_l(x)$, a hyperplane. With shared $\Sigma$ replaced by $S_W / (n - c)$, this recovers the LDA classifier.
 
 **Why is this the same thing as Fisher's criterion?** Both reduce to finding directions $\Sigma^{-1}(\mu_k - \mu_l)$, which are exactly the generalized eigenvectors of $S_W^{-1} S_B$. Fisher derived it geometrically; Gaussian Bayes derives it probabilistically; they coincide.
@@ -412,11 +443,13 @@ $\mu_1 = (2, 8/3) \approx (2, 2.67)$, $\mu_2 = (5, 4/3) \approx (5, 1.33)$.
 
 **Step 2: Within-class scatter.**
 Class 1 deviations: $(-1, -0.67), (0, 0.33), (1, 0.33)$. Contribution:
+
 $$
 \begin{pmatrix} 1 & 0.67 \\ 0.67 & 0.447 \\ \end{pmatrix} + \begin{pmatrix}0 & 0 \\ 0 & 0.11\end{pmatrix} + \begin{pmatrix}1 & 0.33 \\ 0.33 & 0.11\end{pmatrix} = \begin{pmatrix} 2 & 1 \\ 1 & 0.67 \end{pmatrix}.
 $$
 
 Class 2 deviations: $(-1, -0.33), (0, 0.67), (1, -0.33)$. Contribution:
+
 $$
 \begin{pmatrix}1 & 0.33 \\ 0.33 & 0.11\end{pmatrix} + \begin{pmatrix}0 & 0 \\ 0 & 0.447\end{pmatrix} + \begin{pmatrix}1 & -0.33 \\ -0.33 & 0.11\end{pmatrix} = \begin{pmatrix}2 & 0 \\ 0 & 0.67\end{pmatrix}.
 $$
@@ -576,9 +609,11 @@ LDA with one-hot class encoding is equivalent to CCA between features and class 
 Suppose you administer 20 psychological test items (arithmetic, vocabulary, pattern completion, etc.) to 1000 people. Scores are correlated — people good at one thing tend to be good at related things. You suspect a small number of **latent factors** ("verbal ability," "quantitative ability") drive most of the correlations, but each item also has its own idiosyncratic noise (a bad day, a confusing question).
 
 Factor Analysis is the generative model that formalizes this:
+
 $$
 x = \Lambda z + \mu + \epsilon,
 $$
+
 where $z \in \mathbb{R}^k$ are latent factors (few), $\Lambda \in \mathbb{R}^{d \times k}$ is the loadings matrix, $\epsilon$ is per-feature noise with diagonal covariance $\Psi = \mathrm{diag}(\psi_1, \dots, \psi_d)$.
 
 Crucial difference from PCA: FA has an **explicit noise model**, and the noise is per-feature rather than isotropic. This matters because features in many datasets have wildly different noise levels (one sensor is accurate, another is flaky), and FA accounts for this while PCA conflates noise and signal.
@@ -620,30 +655,38 @@ Concrete ML/data-science motivations:
 ### 3.3 Mathematical Formulation
 
 **Model.** $z \sim \mathcal{N}(0, I_k)$, $\epsilon \sim \mathcal{N}(0, \Psi)$ independent of $z$, $\Psi$ diagonal PSD. Then $x | z \sim \mathcal{N}(\Lambda z + \mu, \Psi)$, and marginally
+
 $$
 x \sim \mathcal{N}(\mu, \Lambda \Lambda^\top + \Psi).
 $$
 
 **Posterior over factors.** By Gaussian conjugacy,
+
 $$
 z | x \sim \mathcal{N}\left( (I + \Lambda^\top \Psi^{-1}\Lambda)^{-1}\Lambda^\top \Psi^{-1}(x - \mu), \; (I + \Lambda^\top \Psi^{-1}\Lambda)^{-1} \right).
 $$
+
 The posterior mean is used as the "factor score" for a given $x$.
 
 **MLE via EM.** Log-likelihood:
+
 $$
 \ell(\Lambda, \Psi) = -\frac{n}{2}\log|2\pi(\Lambda\Lambda^\top + \Psi)| - \frac{1}{2}\sum_i (x_i - \mu)^\top(\Lambda\Lambda^\top + \Psi)^{-1}(x_i - \mu).
 $$
+
 No closed form in general. EM algorithm:
 
 - **E-step.** For each $x_i$, compute $\mathbb{E}[z_i | x_i]$ and $\mathbb{E}[z_i z_i^\top | x_i]$ using the posterior above.
 - **M-step.** Update
+
 $$
 \Lambda^{new} = \left(\sum_i (x_i - \mu)\mathbb{E}[z_i|x_i]^\top\right)\left(\sum_i \mathbb{E}[z_i z_i^\top | x_i]\right)^{-1},
 $$
+
 $$
 \Psi^{new} = \mathrm{diag}\left(\frac{1}{n}\sum_i (x_i - \mu)(x_i - \mu)^\top - \Lambda^{new}\mathbb{E}[z_i|x_i](x_i - \mu)^\top\right).
 $$
+
 Iterate. Converges to a local maximum of the likelihood.
 
 **Relationship to PCA.** Let $\Psi = \sigma^2 I$ (isotropic noise instead of diagonal). Then FA reduces to **Probabilistic PCA** (PPCA). Taking $\sigma^2 \to 0$ recovers classical PCA. So PCA is a *constrained* FA: noise forced to be isotropic, not per-feature. This is why FA gives different answers when features have wildly different noise levels: it *models* that mismatch explicitly.
@@ -651,9 +694,11 @@ Iterate. Converges to a local maximum of the likelihood.
 **Rotation formally.** $\Lambda$ and $\Lambda Q$ (for orthogonal $Q$) induce the same $\mathrm{Cov}(x)$. Define a rotation criterion $V(\Lambda Q)$ (e.g., varimax) and optimize over $Q$.
 
 Varimax: maximize
+
 $$
 V(\Lambda) = \sum_{l=1}^k \left[\frac{1}{d}\sum_j \lambda_{jl}^4 - \left(\frac{1}{d}\sum_j \lambda_{jl}^2\right)^2\right].
 $$
+
 This is the variance of squared loadings per factor; pushing it up encourages each factor's loadings to be either clearly large or clearly near zero.
 
 ### 3.4 Worked Example
@@ -663,6 +708,7 @@ This is the variance of squared loadings per factor; pushing it up encourages ea
 - Items 4–6: verbal (synonyms, reading, grammar).
 
 Ideal loadings (after rotation):
+
 $$
 \Lambda = \begin{pmatrix} 0.9 & 0.1 \\ 0.8 & 0.1 \\ 0.85 & 0.0 \\ 0.1 & 0.9 \\ 0.0 & 0.85 \\ 0.05 & 0.8 \end{pmatrix}.
 $$
@@ -858,40 +904,51 @@ So ICA recovers sources up to scale, sign, and permutation. These are *inherent*
 #### 4.3.1 Non-Gaussianity measures
 
 **Kurtosis** (4th cumulant):
+
 $$
 \kappa(y) = \mathbb{E}[y^4] - 3(\mathbb{E}[y^2])^2.
 $$
+
 Zero for Gaussian. Positive for heavy-tailed ("super-Gaussian," like Laplace, speech). Negative for light-tailed ("sub-Gaussian," like uniform).
 
 Kurtosis is cheap to compute but highly sensitive to outliers (fourth moments). For a whitened unit-variance projection $y = w^\top x$, maximize $|\kappa(y)|$ or $\kappa(y)^2$ over directions $w$.
 
 **Negentropy**:
+
 $$
 J(y) = H(y_{\mathrm{gauss}}) - H(y),
 $$
+
 where $y_{\mathrm{gauss}}$ is a Gaussian with the same variance as $y$, and $H$ is differential entropy. Gaussian maximizes entropy for fixed variance, so $J(y) \geq 0$ with equality iff Gaussian. Negentropy is a theoretically principled but computationally expensive measure. Approximations (Hyvärinen's G-functions) are used in practice:
+
 $$
 J(y) \approx (\mathbb{E}[G(y)] - \mathbb{E}[G(\nu)])^2,
 $$
+
 with $\nu \sim \mathcal{N}(0,1)$ and $G$ a non-quadratic, e.g., $G(u) = \log\cosh(u)$ or $G(u) = -\exp(-u^2/2)$.
 
 #### 4.3.2 Mutual information minimization
 
 For $y = Wx$,
+
 $$
 I(y_1, \dots, y_d) = \sum_j H(y_j) - H(y).
 $$
+
 Minimizing $I$ → sources independent. Since $H(y) = H(x) + \log|\det W|$, minimizing MI reduces to choosing $W$ to make each $y_j$ as non-Gaussian as possible (after whitening) — linking MI and negentropy.
 
 #### 4.3.3 FastICA (Hyvärinen, 1999)
 
 For a single component, find $w$ maximizing non-Gaussianity via fixed-point iteration:
+
 $$
 w \leftarrow \mathbb{E}[x \, g(w^\top x)] - \mathbb{E}[g'(w^\top x)]\, w,
 $$
+
 $$
 w \leftarrow w / \|w\|,
 $$
+
 where $g$ is derivative of $G$ (e.g., $g(u) = \tanh(u)$). Convergence is cubic near optimum. For multiple components, Gram–Schmidt-like deflation keeps $w_j \perp w_{1:j-1}$ (valid since data is whitened).
 
 **Derivation sketch.** Maximize $\mathbb{E}[G(w^\top x)]$ subject to $\|w\|=1$. KKT: $\mathbb{E}[x g(w^\top x)] - \beta w = 0$. Newton's method on this yields the FastICA update.
@@ -899,14 +956,17 @@ where $g$ is derivative of $G$ (e.g., $g(u) = \tanh(u)$). Convergence is cubic n
 #### 4.3.4 Infomax (Bell–Sejnowski)
 
 Maximize the entropy of a non-linear transformation of $y = Wx$: pass each $y_j$ through a sigmoid, then maximize output entropy. Gradient:
+
 $$
 \Delta W \propto (W^{-\top} + (1 - 2\sigma(Wx))x^\top),
 $$
+
 where $\sigma$ is the logistic. Equivalent to maximum likelihood under a specific non-Gaussian source prior.
 
 ### 4.4 Worked Example
 
 Two independent sources, uniform on $[-1,1]$ (sub-Gaussian):
+
 $$
 s = \begin{pmatrix} s_1 \\ s_2 \end{pmatrix}, \quad \mathbb{E}[s] = 0, \; \mathrm{Cov}(s) = \tfrac{1}{3}I.
 $$
@@ -1079,21 +1139,27 @@ Concrete ML motivations:
 Minimize the KL divergence $\mathrm{KL}(P \| Q)$ — forcing high-D neighbors to stay neighbors in low-D.
 
 **The perplexity parameter.** For each point $i$, $p_{j|i}$ is a Gaussian centered on $i$ with bandwidth $\sigma_i$:
+
 $$
 p_{j|i} = \frac{\exp(-\|x_i - x_j\|^2 / 2\sigma_i^2)}{\sum_{k \neq i}\exp(-\|x_i - x_k\|^2/2\sigma_i^2)}.
 $$
+
 The bandwidth $\sigma_i$ is chosen so that the **perplexity** — effective number of neighbors — matches a user-specified value (typically 5–50):
+
 $$
 \mathrm{Perp}(P_i) = 2^{H(P_i)}, \quad H(P_i) = -\sum_j p_{j|i}\log_2 p_{j|i}.
 $$
+
 Small perplexity → tight, local neighborhoods → many small clusters shown. Large perplexity → broader neighborhoods → coarser global structure. Different perplexities reveal different scales; no single "right" value.
 
 After computing $p_{j|i}$ per point, symmetrize: $p_{ij} = (p_{j|i} + p_{i|j})/(2n)$. This ensures every point has non-negligible contribution.
 
 **Low-dim distribution.** In the embedding $\{y_i\} \subset \mathbb{R}^2$:
+
 $$
 q_{ij} = \frac{(1 + \|y_i - y_j\|^2)^{-1}}{\sum_{k \neq l}(1 + \|y_k - y_l\|^2)^{-1}}.
 $$
+
 The numerator is the kernel of a Student's $t$ with $\nu = 1$ (heavy-tailed). This is the signature t-SNE move.
 
 **The crowding problem.** In 2D, a point has only $O(r^2)$ area within distance $r$, while in 100D it has $O(r^{100})$ volume. When projecting many moderately-separated points from high-D to 2D, there isn't enough "room" to place them all at correct distances; intermediate-distance points get crushed together. The heavy-tailed $t$ distribution lets low-D pairs sit at much larger distances than a Gaussian would allow, alleviating this crushing. Specifically, $q_{ij} \sim r^{-2}$ for large $r$, so moderate distances in high-D map to substantial distances in low-D without paying a large KL penalty.
@@ -1112,11 +1178,13 @@ The numerator is the kernel of a Student's $t$ with $\nu = 1$ (heavy-tailed). Th
 ### 5.3 Mathematical Formulation
 
 **Objective:**
+
 $$
 C = \mathrm{KL}(P \| Q) = \sum_{i \neq j} p_{ij} \log \frac{p_{ij}}{q_{ij}}.
 $$
 
 **Gradient:**
+
 $$
 \frac{\partial C}{\partial y_i} = 4 \sum_j (p_{ij} - q_{ij})(y_i - y_j)(1 + \|y_i - y_j\|^2)^{-1}.
 $$
@@ -1124,9 +1192,11 @@ $$
 **Interpretation as forces.** Pairs with $p_{ij} > q_{ij}$ (closer in high-D than low-D) attract. Pairs with $p_{ij} < q_{ij}$ repel. The $(1 + \|y_i - y_j\|^2)^{-1}$ factor weights short-range interactions more than long-range.
 
 **Derivation of gradient.** Let $Z = \sum_{k \neq l}(1 + \|y_k - y_l\|^2)^{-1}$ and $w_{ij} = (1 + \|y_i - y_j\|^2)^{-1}$, so $q_{ij} = w_{ij}/Z$. Then
+
 $$
 C = -\sum p_{ij}\log q_{ij} + \mathrm{const} = -\sum p_{ij}\log w_{ij} + \log Z.
 $$
+
 $\partial_{y_i}\log w_{ij} = -2(y_i - y_j) w_{ij}$.
 $\partial_{y_i}\log Z = (1/Z)\sum_j -2(y_i - y_j)w_{ij}^2 \cdot 2 = -4\sum_j (y_i - y_j)q_{ij}w_{ij}$ (factor of 2 for symmetry).
 Combining (and using $\sum_j p_{ij}$ contributions) gives the quoted gradient.
@@ -1300,9 +1370,11 @@ UMAP's construction has two phases:
 **Phase 1 — High-D graph.**
 - For each point $x_i$, find its $k$ nearest neighbors.
 - Each neighbor $x_j$ is connected by an edge with a weight representing membership in $x_i$'s local neighborhood:
+
 $$
 w_{j|i} = \exp\left(-\frac{\max(0, d(x_i, x_j) - \rho_i)}{\sigma_i}\right),
 $$
+
 where $\rho_i$ is the distance to the nearest neighbor (making the nearest always have weight 1) and $\sigma_i$ is chosen so that $\sum_j w_{j|i} = \log_2 k$ — analogous to perplexity.
 - Symmetrize via fuzzy-set union: $w_{ij} = w_{j|i} + w_{i|j} - w_{j|i} w_{i|j}$ (the "probabilistic t-conorm").
 
@@ -1310,14 +1382,18 @@ This produces a weighted directed graph on the data, treated as a fuzzy simplici
 
 **Phase 2 — Low-D optimization.**
 - Place points $y_i$ in $\mathbb{R}^2$ (or $\mathbb{R}^k$). The low-D neighborhood membership between $y_i, y_j$ is
+
 $$
 v_{ij} = (1 + a\|y_i - y_j\|^{2b})^{-1},
 $$
+
 where $a, b$ are fit from user-specified `min_dist` and `spread` parameters. This plays the role of t-SNE's $t$-kernel but with tunable tails.
 - Minimize cross-entropy:
+
 $$
 C = \sum_{i\neq j}\left[w_{ij}\log \frac{w_{ij}}{v_{ij}} + (1 - w_{ij})\log \frac{1 - w_{ij}}{1 - v_{ij}}\right].
 $$
+
 This is the fuzzy-set cross-entropy — a key difference from t-SNE, which uses KL.
 
 **Optimization is stochastic gradient descent** over edges (attractive forces) and negative samples (repulsive forces), à la word2vec. This is why UMAP is so fast: it never sums over all $O(n^2)$ pairs.
@@ -1348,9 +1424,11 @@ Symmetric: $w_{ij} = w_{j|i} + w_{i|j} - w_{j|i} w_{i|j}$.
 **Low-D kernel.** $v_{ij} = (1 + a \|y_i - y_j\|^{2b})^{-1}$. Curve $a, b$ fitted so that the kernel equals 1 for distances below `min_dist` and decays smoothly beyond.
 
 **Cross-entropy loss:**
+
 $$
 C = \sum_{i<j} w_{ij}\log \frac{w_{ij}}{v_{ij}} + (1-w_{ij})\log\frac{1-w_{ij}}{1-v_{ij}}.
 $$
+
 The first term (attractive) says: when $w_{ij}$ large, make $v_{ij}$ large (bring points together). The second term (repulsive) says: when $w_{ij}$ small, make $v_{ij}$ small (push apart). Unlike t-SNE, UMAP has explicit repulsive terms, which improves global structure preservation.
 
 **Gradient (simplified).** For an edge $(i,j)$ with weight $w_{ij}$, gradient on $y_i$:
@@ -1564,18 +1642,23 @@ Concrete ML motivations:
 **Contractive AE.** $\min \|x - \hat{x}\|^2 + \lambda \|\partial f/\partial x\|_F^2$. Encourages invariance to small input changes.
 
 **Variational AE.**
+
 $$
 \mathcal{L}(\phi, \theta; x) = \mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)] - \mathrm{KL}(q_\phi(z|x)\|p(z)).
 $$
+
 First term: reconstruction (under Gaussian $p(x|z)$ this reduces to squared error). Second term: regularizer toward prior. Optimized via the reparameterization trick: sample $\epsilon \sim \mathcal{N}(0, I)$, set $z = \mu_\phi(x) + \sigma_\phi(x) \odot \epsilon$ — enabling gradient flow through stochastic sampling. The KL for Gaussians is closed form:
+
 $$
 \mathrm{KL} = \frac{1}{2}\sum_j(\mu_j^2 + \sigma_j^2 - \log \sigma_j^2 - 1).
 $$
 
 **ELBO derivation:** Start from $\log p(x) = \log \int p(x,z)\,dz$. Multiply and divide by $q(z|x)$:
+
 $$
 \log p(x) = \log \mathbb{E}_q\left[\frac{p(x,z)}{q(z|x)}\right] \geq \mathbb{E}_q[\log p(x,z) - \log q(z|x)] = \mathbb{E}_q[\log p(x|z)] - \mathrm{KL}(q\|p).
 $$
+
 By Jensen. The gap to $\log p(x)$ is $\mathrm{KL}(q_\phi(z|x)\|p(z|x))$ — closed when $q$ matches the true posterior.
 
 ### 7.4 Worked Example
@@ -2151,12 +2234,15 @@ Each iteration, consider both adding and removing a feature; proceed with whiche
 Let $S \subseteq \{1, \dots, d\}$ be a feature subset, $\mathcal{A}$ a learning algorithm, $L$ a loss function, and $\mathrm{CV}(S)$ the cross-validated score of $\mathcal{A}$ trained on features $S$.
 
 **Forward selection:** $S_0 = \emptyset$. At step $t$:
+
 $$
 j^* = \arg\max_{j \notin S_{t-1}} \mathrm{CV}(S_{t-1} \cup \{j\}), \quad S_t = S_{t-1} \cup \{j^*\}.
 $$
+
 Stop when $\mathrm{CV}(S_t) \leq \mathrm{CV}(S_{t-1}) + \delta$ (no improvement beyond tolerance).
 
 **Backward elimination:** $S_0 = \{1, \dots, d\}$. At step $t$:
+
 $$
 j^* = \arg\max_{j \in S_{t-1}} \mathrm{CV}(S_{t-1} \setminus \{j\}), \quad S_t = S_{t-1} \setminus \{j^*\}.
 $$
@@ -2322,17 +2408,21 @@ Decision trees naturally rank features by how useful they are for splitting. Two
 **Lasso.** $\min_\beta \frac{1}{2n}\|y - X\beta\|_2^2 + \lambda \|\beta\|_1$.
 
 Subgradient optimality: for each $j$,
+
 $$
 -\frac{1}{n} x_j^\top(y - X\beta) + \lambda \partial|\beta_j| \ni 0,
 $$
+
 where $\partial|\beta_j| = \{\mathrm{sign}(\beta_j)\}$ if $\beta_j \neq 0$ and $[-1, 1]$ if $\beta_j = 0$.
 
 At $\beta_j = 0$: feature $j$ is selected out iff $|\frac{1}{n} x_j^\top r| \leq \lambda$ (where $r$ is the residual from other features). The larger $\lambda$, the more features zeroed.
 
 **Coordinate descent** (main solver): cycle through $j = 1, \dots, d$, solving the univariate problem
+
 $$
 \beta_j \leftarrow S_\lambda\left(\frac{1}{n}x_j^\top r_{-j}\right),
 $$
+
 where $S_\lambda(z) = \mathrm{sign}(z)\max(|z| - \lambda, 0)$ is the soft-thresholding operator and $r_{-j} = y - X_{-j}\beta_{-j}$ is the partial residual.
 
 **Regularization path.** As $\lambda$ decreases from $\lambda_{\max} = \max_j |\frac{1}{n}x_j^\top y|$ (all-zero solution) to 0 (OLS solution), features enter one by one. The solution path is piecewise linear (the "LARS" property). Plot coefficients vs. $\lambda$ — this is the **Lasso path**.
@@ -2340,15 +2430,19 @@ where $S_\lambda(z) = \mathrm{sign}(z)\max(|z| - \lambda, 0)$ is the soft-thresh
 **Elastic net.** $\min \frac{1}{2n}\|y - X\beta\|^2 + \lambda_1\|\beta\|_1 + \lambda_2\|\beta\|_2^2$. Equivalently reparametrize with $\alpha = \lambda_1/(\lambda_1 + 2\lambda_2)$ (mixing parameter, $\alpha=1$ is Lasso, $\alpha=0$ is ridge). Soft-threshold update becomes $\beta_j \leftarrow S_{\lambda\alpha}(z_j) / (1 + \lambda(1-\alpha))$.
 
 **Tree impurity importance.** For a tree $T$ with splits $\{s_1, \dots, s_m\}$, impurity decrease at split $s$ on feature $j$ with left/right children:
+
 $$
 \Delta I(s) = I(\mathrm{parent}) - \frac{n_L}{n}I(\mathrm{left}) - \frac{n_R}{n}I(\mathrm{right}).
 $$
+
 Feature $j$'s importance: $\mathrm{Imp}(j) = \sum_{s: \mathrm{feature}(s) = j} n_s \Delta I(s)$. For a forest: average over trees.
 
 **Permutation importance.** For feature $j$:
+
 $$
 \mathrm{PI}(j) = \mathrm{Score}(X, y) - \mathrm{Score}(X_{\pi_j}, y),
 $$
+
 where $X_{\pi_j}$ is $X$ with column $j$ randomly shuffled. Average over multiple shuffles.
 
 ### 11.4 Worked Example

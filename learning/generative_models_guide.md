@@ -203,6 +203,7 @@ Per data point, with one Monte Carlo sample of $\epsilon$:
 $$
 \mathcal{L}(\theta, \phi; x) \approx \log p_\theta(x \mid z) - \frac{1}{2}\sum_j (\mu_j^2 + \sigma_j^2 - 1 - \log \sigma_j^2),
 $$
+
 where $z = \mu + \sigma \odot \epsilon$. Encoders typically output $\log \sigma^2$ (logvar) for stability.
 
 ## 1.4 Worked Example

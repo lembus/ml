@@ -140,14 +140,17 @@ Then $N_k(\mathbf{x}_q) = \{\pi(1), \dots, \pi(k)\}$.
 ### Classification
 
 The plurality-vote prediction is:
+
 $$
 \hat{y}_q \;=\; \arg\max_{c \in \{1,\dots,C\}} \; \sum_{i \in N_k(\mathbf{x}_q)} \mathbb{1}[y_i = c].
 $$
 
 Equivalently, the posterior estimate is
+
 $$
 \hat{p}(y = c \mid \mathbf{x}_q) \;=\; \frac{1}{k}\sum_{i \in N_k(\mathbf{x}_q)} \mathbb{1}[y_i = c],
 $$
+
 and $\hat{y}_q = \arg\max_c \hat{p}(y = c \mid \mathbf{x}_q)$.
 
 ### Regression
@@ -157,6 +160,7 @@ $$
 $$
 
 For weighted variants (Topic 3), each neighbor carries weight $w_i = f(d(\mathbf{x}_q, \mathbf{x}_i))$, and
+
 $$
 \hat{y}_q \;=\; \frac{\sum_{i \in N_k} w_i\, y_i}{\sum_{i \in N_k} w_i}.
 $$
@@ -166,6 +170,7 @@ $$
 A famous result motivates kNN theoretically. Let $\eta(\mathbf{x}) = P(Y = 1 \mid X = \mathbf{x})$ for binary classification, and let the Bayes error rate be $R^* = \mathbb{E}[\min(\eta(X), 1-\eta(X))]$.
 
 **Cover–Hart theorem (1-NN asymptotic risk).** As $n \to \infty$, the 1-NN classifier's expected error $R_{\text{1NN}}$ satisfies
+
 $$
 R^* \;\le\; R_{\text{1NN}} \;\le\; 2 R^* (1 - R^*).
 $$
@@ -177,19 +182,25 @@ The interpretation is striking: in the infinite-data limit, **1-NN is at most tw
 ### Derivation: Why standardization matters
 
 Consider Euclidean distance on two features with very different scales:
+
 $$
 d(\mathbf{x}, \mathbf{x}')^2 \;=\; (x_1 - x_1')^2 + (x_2 - x_2')^2.
 $$
+
 Suppose $x_1 \in [0, 1000]$ (income in dollars) and $x_2 \in [0, 1]$ (a probability). Differences in $x_1$ are typically $O(100)$, while differences in $x_2$ are $O(0.1)$. Therefore
+
 $$
 (x_1 - x_1')^2 \gg (x_2 - x_2')^2
 $$
+
 almost always, and the distance is effectively $|x_1 - x_1'|$. The probability feature is ignored.
 
 **Fix:** standardize each feature to zero mean and unit variance:
+
 $$
 \tilde{x}_j = \frac{x_j - \mu_j}{\sigma_j}.
 $$
+
 Now each feature contributes on comparable scales. More principled still: use the Mahalanobis metric (Topic 2), which learns the right scaling from data.
 
 ### Computational complexity
@@ -254,11 +265,13 @@ Same 6 points, but now $y$ is a continuous target:
 | 6 | 11  |
 
 Using $k=3$ unweighted:
+
 $$
 \hat{y}_q = \frac{y_6 + y_3 + y_2}{3} = \frac{11 + 30 + 12}{3} = \frac{53}{3} \approx 17.67.
 $$
 
 Using inverse-distance weighting, $w_i = 1/d_i$:
+
 $$
 \begin{aligned}
 w_6 &= 1/0.707 \approx 1.414 \\
@@ -266,6 +279,7 @@ w_3 &= 1/1.118 \approx 0.894 \\
 w_2 &= 1/1.414 \approx 0.707
 \end{aligned}
 $$
+
 $$
 \hat{y}_q = \frac{1.414 \cdot 11 + 0.894 \cdot 30 + 0.707 \cdot 12}{1.414 + 0.894 + 0.707} = \frac{15.55 + 26.82 + 8.48}{3.015} = \frac{50.85}{3.015} \approx 16.87.
 $$
@@ -458,9 +472,11 @@ $$
 - $p \to \infty$: **Chebyshev** distance, $d_\infty(\mathbf{x}, \mathbf{y}) = \max_j |x_j - y_j|$.
 
 **Proof sketch for $p \to \infty$.** Let $M = \max_j |x_j - y_j|$. Then
+
 $$
 d_p = \left(\sum_j |x_j - y_j|^p\right)^{1/p} = M \left(\sum_j \left(\frac{|x_j - y_j|}{M}\right)^p\right)^{1/p}.
 $$
+
 Each ratio is in $[0,1]$ and at least one equals 1. As $p \to \infty$, terms with ratio $< 1$ vanish, so the sum approaches the number of coordinates achieving the max (finite), and the $p$-th root of that approaches 1. Hence $d_p \to M$.
 
 **When is Minkowski a metric?** Only for $p \ge 1$. For $0 < p < 1$, $d_p$ fails the triangle inequality. These *fractional Lp* "distances" are sometimes used experimentally in high dimensions (see Aggarwal, Hinneburg, Keim, 2001) because they can preserve neighbor rank better than L2 when $d$ is huge — but they are not true metrics and not supported by standard tree-based indexes.
@@ -468,14 +484,17 @@ Each ratio is in $[0,1]$ and at least one equals 1. As $p \to \infty$, terms wit
 ### Mahalanobis
 
 Let $\Sigma$ be a symmetric positive-definite $d \times d$ matrix (typically the sample covariance of the data, or a learned matrix). The Mahalanobis distance is
+
 $$
 d_M(\mathbf{x}, \mathbf{y}) \;=\; \sqrt{(\mathbf{x} - \mathbf{y})^\top \Sigma^{-1} (\mathbf{x} - \mathbf{y})}.
 $$
 
 **Intuition.** Consider the whitening transform $\mathbf{z} = \Sigma^{-1/2} \mathbf{x}$. Then
+
 $$
 d_M(\mathbf{x}, \mathbf{y}) = \|\Sigma^{-1/2}(\mathbf{x} - \mathbf{y})\|_2 = \|\mathbf{z} - \mathbf{z}'\|_2.
 $$
+
 Mahalanobis is **Euclidean distance after whitening**. It rescales each principal direction by the inverse standard deviation and de-correlates features.
 
 **Special cases:**
@@ -490,6 +509,7 @@ Mahalanobis is **Euclidean distance after whitening**. It rescales each principa
 ### Hamming distance
 
 For vectors $\mathbf{x}, \mathbf{y}$ over a finite alphabet (binary, categorical, or string):
+
 $$
 d_H(\mathbf{x}, \mathbf{y}) \;=\; \sum_{j=1}^{d} \mathbb{1}[x_j \neq y_j].
 $$
@@ -507,6 +527,7 @@ On binary vectors, Hamming equals the squared Euclidean distance, and equals $L_
 ### Cosine similarity and distance
 
 For nonzero vectors $\mathbf{x}, \mathbf{y}$:
+
 $$
 \cos(\theta) = \frac{\mathbf{x}^\top \mathbf{y}}{\|\mathbf{x}\|_2 \|\mathbf{y}\|_2}, \qquad d_{\cos}(\mathbf{x}, \mathbf{y}) = 1 - \cos(\theta).
 $$
@@ -514,22 +535,27 @@ $$
 Cosine similarity is invariant to scaling of either vector — only direction matters.
 
 **Relation to Euclidean.** On L2-normalized vectors ($\|\mathbf{x}\| = 1$):
+
 $$
 \|\mathbf{x} - \mathbf{y}\|_2^2 = \|\mathbf{x}\|^2 + \|\mathbf{y}\|^2 - 2\mathbf{x}^\top \mathbf{y} = 2(1 - \cos\theta).
 $$
+
 So on unit vectors, Euclidean and cosine give identical neighbor rankings. This is why normalizing embeddings and using Euclidean is often practically equivalent to cosine.
 
 ### Derivation: Triangle inequality for L2
 
 We prove $\|\mathbf{x} + \mathbf{y}\|_2 \le \|\mathbf{x}\|_2 + \|\mathbf{y}\|_2$. By the Cauchy–Schwarz inequality, $\mathbf{x}^\top \mathbf{y} \le \|\mathbf{x}\|_2 \|\mathbf{y}\|_2$. Then
+
 $$
 \|\mathbf{x} + \mathbf{y}\|_2^2 = \|\mathbf{x}\|^2 + 2\mathbf{x}^\top\mathbf{y} + \|\mathbf{y}\|^2 \le \|\mathbf{x}\|^2 + 2\|\mathbf{x}\|\|\mathbf{y}\| + \|\mathbf{y}\|^2 = (\|\mathbf{x}\| + \|\mathbf{y}\|)^2.
 $$
+
 Taking square roots gives the triangle inequality. Apply with $\mathbf{x} \to \mathbf{a} - \mathbf{b}$ and $\mathbf{y} \to \mathbf{b} - \mathbf{c}$ to conclude $d(\mathbf{a}, \mathbf{c}) \le d(\mathbf{a}, \mathbf{b}) + d(\mathbf{b}, \mathbf{c})$.
 
 ### Derivation: Mahalanobis as whitened Euclidean
 
 Given $\Sigma = U \Lambda U^\top$ (eigendecomposition), define $\Sigma^{-1/2} = U \Lambda^{-1/2} U^\top$. Then
+
 $$
 \begin{aligned}
 d_M(\mathbf{x}, \mathbf{y})^2 &= (\mathbf{x} - \mathbf{y})^\top \Sigma^{-1} (\mathbf{x} - \mathbf{y}) \\
@@ -537,6 +563,7 @@ d_M(\mathbf{x}, \mathbf{y})^2 &= (\mathbf{x} - \mathbf{y})^\top \Sigma^{-1} (\ma
 &= \|\Sigma^{-1/2}(\mathbf{x} - \mathbf{y})\|_2^2.
 \end{aligned}
 $$
+
 The transformation $\mathbf{x} \mapsto \Sigma^{-1/2}\mathbf{x}$ is called **whitening** because it maps a zero-mean random vector with covariance $\Sigma$ to one with covariance $I$ — the "white noise" spectrum.
 
 ---
@@ -560,9 +587,11 @@ Euclidean sees $\mathbf{y}$ and $\mathbf{y}'$ as equidistant from the origin; Ma
 ### Example 2: Mahalanobis with correlated features
 
 Suppose
+
 $$
 \Sigma = \begin{pmatrix} 1 & 0.9 \\ 0.9 & 1 \end{pmatrix}.
 $$
+
 The eigenvalues are $1.9$ (along direction $(1,1)/\sqrt{2}$) and $0.1$ (along $(1,-1)/\sqrt{2}$).
 
 $$
@@ -576,9 +605,11 @@ Consider two candidate points relative to the origin:
 Euclidean: $\|\mathbf{a}\| = \|\mathbf{b}\| = \sqrt{2}$, equidistant.
 
 Mahalanobis:
+
 $$
 d_M(\mathbf{0}, \mathbf{a})^2 = \mathbf{a}^\top \Sigma^{-1} \mathbf{a} \approx 5.26 - 4.74 - 4.74 + 5.26 = 1.04, \quad d_M \approx 1.02.
 $$
+
 $$
 d_M(\mathbf{0}, \mathbf{b})^2 = \mathbf{b}^\top \Sigma^{-1} \mathbf{b} \approx 5.26 + 4.74 + 4.74 + 5.26 = 20.00, \quad d_M \approx 4.47.
 $$
@@ -707,9 +738,11 @@ Each of the $k$ neighbors carries a weight $w_i \ge 0$ that depends on its dista
 ### Radius-based neighbors
 
 Given a radius $r > 0$, the neighbor set is
+
 $$
 N_r(\mathbf{x}_q) = \{i : d(\mathbf{x}_i, \mathbf{x}_q) \le r\}.
 $$
+
 Predictions are computed from $N_r$ (typically via the same weighting rules). $|N_r|$ varies across queries.
 
 **Edge case:** if $N_r = \emptyset$, the prediction is undefined — a feature, not a bug. The model can decline to predict, flagging out-of-distribution queries. This is a powerful property for safety-critical applications.
@@ -728,9 +761,11 @@ Predictions are computed from $N_r$ (typically via the same weighting rules). $|
 ### Connection to kernel density estimation and Nadaraya–Watson
 
 Weighted kNN with a kernel is a close cousin of the **Nadaraya–Watson estimator** — a nonparametric regression method:
+
 $$
 \hat{f}(\mathbf{x}) = \frac{\sum_{i=1}^n K_h(\mathbf{x} - \mathbf{x}_i)\, y_i}{\sum_{i=1}^n K_h(\mathbf{x} - \mathbf{x}_i)}.
 $$
+
 When $K_h$ has compact support (e.g., uniform kernel on $[-h, h]$), this is exactly radius-based weighted kNN with radius $h$.
 
 ---
@@ -754,25 +789,31 @@ The bandwidth $h$ plays a role analogous to $k$: it controls the bias–variance
 ### Derivation: Optimal weighting under known noise model
 
 Suppose for each training point $y_i = f(\mathbf{x}_i) + \epsilon_i$ with $\epsilon_i \sim \mathcal{N}(0, \sigma_i^2)$ independently, and we want to estimate $f(\mathbf{x}_q) \approx f(\mathbf{x}_i)$ for $\mathbf{x}_i$ near $\mathbf{x}_q$. The minimum-variance unbiased linear estimator is the inverse-variance weighted mean:
+
 $$
 \hat{y}_q = \frac{\sum_i (1/\sigma_i^2) y_i}{\sum_i (1/\sigma_i^2)}.
 $$
+
 If we model "effective noise" as increasing with distance (because $f(\mathbf{x}_i) \neq f(\mathbf{x}_q)$ when $\mathbf{x}_i \neq \mathbf{x}_q$), and in particular $\sigma_i^2 \propto d_i^2$, this recovers inverse-squared-distance weighting. This provides a loose theoretical justification — though it glosses over the bias from replacing $f(\mathbf{x}_i)$ with $f(\mathbf{x}_q)$.
 
 ### Derivation: Bias–variance of kernel-weighted regression (1D sketch)
 
 Assume $y = f(x) + \epsilon$, $\epsilon \sim \mathcal{N}(0, \sigma^2)$, with a smooth $f$. For the Nadaraya–Watson estimator with bandwidth $h$ in 1D under mild conditions:
+
 $$
 \text{Bias}[\hat f(x)] \approx \tfrac{1}{2} h^2 \mu_2(K) f''(x), \qquad \text{Var}[\hat f(x)] \approx \frac{\sigma^2 R(K)}{n h\, p(x)},
 $$
+
 where $\mu_2(K) = \int u^2 K(u)\, du$, $R(K) = \int K(u)^2\, du$, and $p(x)$ is the density. The MSE-optimal bandwidth scales as $h^* \propto n^{-1/5}$ (1D) and more generally $h^* \propto n^{-1/(d+4)}$ — a rate that degrades with dimensionality (a theme we revisit in Topic 5).
 
 ### Radius-based classification probability
 
 With uniform weights in $N_r(\mathbf{x}_q)$:
+
 $$
 \hat{p}(y = c \mid \mathbf{x}_q) = \frac{|\{i \in N_r : y_i = c\}|}{|N_r|}.
 $$
+
 With $|N_r| = 0$, the estimator is undefined; the model may abstain or fall back.
 
 ---
@@ -921,9 +962,11 @@ A binary tree that recursively partitions points into **balls** (metric balls, n
 - $O(n)$ space.
 
 **Querying.** At each node, a triangle-inequality bound tells us the minimum possible distance from the query to any point in the ball:
+
 $$
 \min_{\mathbf{x} \in \text{ball}(c, R)} d(\mathbf{x}_q, \mathbf{x}) \ge d(\mathbf{x}_q, \mathbf{c}) - R.
 $$
+
 If this lower bound exceeds the current best-known distance, prune the entire subtree. Otherwise, descend.
 
 **Advantages over kd-trees.**
@@ -974,17 +1017,21 @@ At an internal node splitting axis $j$ at value $s$:
 - If the current best-known nearest distance $d^*$ satisfies $d^* < |q_j - s|$, **prune** the farther subtree.
 
 Formally, the farther subtree contains only points $\mathbf{x}$ with $x_j$ on the far side of $s$, so
+
 $$
 d(\mathbf{x}_q, \mathbf{x})^2 \ge (q_j - s)^2 = |q_j - s|^2.
 $$
+
 If this already exceeds $(d^*)^2$, no point in the subtree can beat the current best.
 
 ### Ball-tree pruning rule
 
 For a subtree rooted at a ball with center $\mathbf{c}$ and radius $R$:
+
 $$
 \min_{\mathbf{x} \in \text{subtree}} d(\mathbf{x}_q, \mathbf{x}) \ge \max(0, d(\mathbf{x}_q, \mathbf{c}) - R).
 $$
+
 (By triangle inequality: $d(\mathbf{x}_q, \mathbf{c}) \le d(\mathbf{x}_q, \mathbf{x}) + d(\mathbf{x}, \mathbf{c}) \le d(\mathbf{x}_q, \mathbf{x}) + R$, so $d(\mathbf{x}_q, \mathbf{x}) \ge d(\mathbf{x}_q, \mathbf{c}) - R$.)
 
 Prune if $d(\mathbf{x}_q, \mathbf{c}) - R \ge d^*$.
@@ -1045,6 +1092,7 @@ Despite a small tree, we visited every node — in 2D with 6 points, pruning is 
 Documents are sets of shingles (n-grams). Jaccard similarity between sets $A, B$ is $|A \cap B| / |A \cup B|$.
 
 **MinHash.** Pick random permutation $\pi$ of the universe of shingles. Define $h_\pi(A) = \min_{s \in A} \pi(s)$. A classic result:
+
 $$
 P[h_\pi(A) = h_\pi(B)] = \frac{|A \cap B|}{|A \cup B|} = J(A, B).
 $$
@@ -1052,9 +1100,11 @@ $$
 Use $L$ independent hashes to form a signature vector of length $L$. Estimate $J(A, B) \approx$ fraction of agreeing positions.
 
 For near-duplicate detection: treat signatures as bands of $r$ rows each, hash each band to a bucket. Two documents are *candidates* if they agree on any band. With $L = br$ hashes, $b$ bands of $r$ each, two documents with Jaccard $s$ become candidates with probability
+
 $$
 1 - (1 - s^r)^b.
 $$
+
 This is an S-shaped curve in $s$: nearly 0 for low similarity, nearly 1 for high similarity, with a steep transition at $s^* \approx (1/b)^{1/r}$. Tuning $b$ and $r$ sets the threshold.
 
 ### Example 3: Ball-tree pruning arithmetic
@@ -1142,9 +1192,11 @@ The very notion of "neighborhood" becomes fuzzy.
 ### Another illustration: volume concentration
 
 In a $d$-dimensional unit ball, the fraction of volume within the outermost $\epsilon$-shell is
+
 $$
 1 - (1 - \epsilon)^d.
 $$
+
 For $\epsilon = 0.01$ and $d = 500$: $1 - 0.99^{500} \approx 1 - 0.0066 \approx 0.993$. Over 99% of the volume is in the outermost 1% of the radius. Most points are "near the surface." There is no "middle" of a high-dimensional ball in any meaningful volumetric sense.
 
 ### Why this hurts kNN
@@ -1166,9 +1218,11 @@ kNN assumes close-by points are special. When distance loses contrast, the $k$ n
 ### Relative contrast
 
 Define the **relative contrast** at a query $\mathbf{x}_q$:
+
 $$
 C_n(\mathbf{x}_q) = \frac{\max_i d(\mathbf{x}_q, \mathbf{x}_i) - \min_i d(\mathbf{x}_q, \mathbf{x}_i)}{\min_i d(\mathbf{x}_q, \mathbf{x}_i)}.
 $$
+
 Beyer et al. (1999) showed that, under general conditions on the data distribution, $C_n(\mathbf{x}_q) \to 0$ in probability as $d \to \infty$ — **for independent, identically distributed features**.
 
 ### What is the "intrinsic dimensionality"?
@@ -1199,48 +1253,61 @@ Mitigations:
 ### Concentration of Euclidean distance between two iid points
 
 Let $\mathbf{x}, \mathbf{y} \sim \mathcal{N}(\mathbf{0}, I_d)$ independently. Then $\mathbf{x} - \mathbf{y} \sim \mathcal{N}(\mathbf{0}, 2 I_d)$ and
+
 $$
 \|\mathbf{x} - \mathbf{y}\|_2^2 \sim 2 \chi^2_d.
 $$
+
 $\chi^2_d$ has mean $d$ and variance $2d$, so
+
 $$
 \mathbb{E}[\|\mathbf{x}-\mathbf{y}\|_2^2] = 2d, \qquad \text{Var}[\|\mathbf{x}-\mathbf{y}\|_2^2] = 8d.
 $$
+
 The coefficient of variation of $\|\mathbf{x}-\mathbf{y}\|_2^2$ is $\sqrt{8d}/(2d) = 2/\sqrt{d} \to 0$.
 
 For the distance itself (not squared), a finer analysis using the delta method gives
+
 $$
 \|\mathbf{x} - \mathbf{y}\|_2 \approx \sqrt{2d}, \qquad \text{std dev} \approx 1/\sqrt{2} \cdot \sqrt{2} = 1.
 $$
+
 So distances have **absolute** spread $O(1)$ but **mean** $O(\sqrt{d})$. Relative spread vanishes.
 
 ### Beyer–Goldstein–Ramakrishnan–Shaft (1999) theorem
 
 Let $\mathbf{x}_1, \dots, \mathbf{x}_n$ be iid from an arbitrary distribution in $\mathbb{R}^d$, and $\mathbf{x}_q$ independent. Define
+
 $$
 D_{\max}^{(d)} = \max_i d(\mathbf{x}_q, \mathbf{x}_i), \quad D_{\min}^{(d)} = \min_i d(\mathbf{x}_q, \mathbf{x}_i).
 $$
 
 Under mild conditions (essentially, that the variance of the pairwise-distance-distribution-component is bounded relative to the mean),
+
 $$
 \lim_{d \to \infty} \mathbb{E}\!\left[\frac{D_{\max}^{(d)}}{D_{\min}^{(d)}}\right] = 1.
 $$
+
 The farthest and nearest neighbors converge in ratio — the nearest neighbor is no longer meaningfully close.
 
 ### Aggarwal et al. (2001) on $L_p$ norms
 
 For iid features, the relative contrast of $L_p$ distances satisfies
+
 $$
 \frac{D_{\max} - D_{\min}}{D_{\min}} \sim d^{(1/p) - (1/2)}
 $$
+
 as $d \to \infty$. For $p = 2$, this is $d^0 = O(1)$ — contrast is constant. For $p > 2$, it decays; for $p < 2$ (especially fractional Lp), it *grows*, suggesting $L_1$ and fractional Lp are preferable in high dimensions. Interesting in theory, but fractional Lp is not a metric.
 
 ### Derivation: Volume of a thin shell
 
 The volume of a $d$-ball of radius $r$ is $V_d r^d$ where $V_d = \pi^{d/2}/\Gamma(d/2 + 1)$. The ratio of a thin shell of thickness $\epsilon$ to total volume is
+
 $$
 \frac{V_d - V_d(1-\epsilon)^d \cdot (\text{unit ball vol})}{V_d \cdot (\text{unit ball vol})} = 1 - (1-\epsilon)^d.
 $$
+
 Taylor expansion: $1 - (1-\epsilon)^d \approx 1 - e^{-\epsilon d}$. For $\epsilon d \gg 1$, this is nearly 1.
 
 **Takeaway:** in high dim, a uniform distribution on a ball is practically a uniform distribution on its surface.
@@ -1270,9 +1337,11 @@ At $d = 1000$, the nearest neighbor is only 2% closer than the farthest. "Neares
 ### Example 2: Needed points for coverage
 
 We want a 1% radius around every query (i.e., at least one training point within 1% of the range along each axis). In $d$ dims, that corresponds to training points covering $(0.01)^d$ fraction of the volume. To have one point in expectation per such "cell," we need
+
 $$
 n \ge 100^d.
 $$
+
 $d = 2$: $n = 10^4$. Feasible. $d = 10$: $n = 10^{20}$. Infeasible.
 
 ### Example 3: Gaussian pairwise distance spread
@@ -1401,9 +1470,11 @@ Common schemes to evaluate:
 3. Inverse-squared distance.
 4. Gaussian (with bandwidth $h$).
 5. Tricube kernel (popular in LOESS):
+
 $$
 K(u) = (1 - |u|^3)^3, \quad |u| \le 1.
 $$
+
 6. Rank-based.
 
 Treat the choice as a hyperparameter and CV alongside $k$.
@@ -1428,9 +1499,11 @@ Treat the choice as a hyperparameter and CV alongside $k$.
 ### CV risk estimator
 
 For loss $\ell$ and candidate $k$:
+
 $$
 \widehat{R}_{\text{CV}}(k) = \frac{1}{K}\sum_{i=1}^{K} \frac{1}{|\mathcal{F}_i|}\sum_{j \in \mathcal{F}_i} \ell(y_j, \hat{y}_j^{(-i)}(k)),
 $$
+
 where $\hat{y}_j^{(-i)}(k)$ is the kNN prediction for $\mathbf{x}_j$ using all data except fold $i$.
 
 Select $\hat{k} = \arg\min_k \widehat{R}_{\text{CV}}(k)$.
@@ -1438,9 +1511,11 @@ Select $\hat{k} = \arg\min_k \widehat{R}_{\text{CV}}(k)$.
 ### One-standard-error rule
 
 Let $\widehat{\text{SE}}(k)$ be the standard error of the CV estimate across folds. Pick
+
 $$
 \hat{k}_{1SE} = \max\{k : \widehat{R}_{\text{CV}}(k) \le \widehat{R}_{\text{CV}}(\hat{k}) + \widehat{\text{SE}}(\hat{k})\}.
 $$
+
 In kNN, larger $k$ is simpler (more regularized), so this favors more stable models.
 
 ### Efficient LOOCV for kNN
@@ -1450,15 +1525,19 @@ Precompute the full pairwise distance matrix (or use an index). For each $i$, th
 ### Derivation: Bias–variance of kNN regression
 
 Assume $y = f(\mathbf{x}) + \epsilon$ with $\mathbb{E}[\epsilon] = 0$, $\text{Var}[\epsilon] = \sigma^2$. For a query $\mathbf{x}_q$ and its $k$ nearest neighbors $\mathbf{x}_{(1)}, \dots, \mathbf{x}_{(k)}$ (treating as fixed):
+
 $$
 \hat{y}_q = \frac{1}{k}\sum_{j=1}^k (f(\mathbf{x}_{(j)}) + \epsilon_{(j)}).
 $$
+
 $$
 \mathbb{E}[\hat{y}_q] - f(\mathbf{x}_q) = \frac{1}{k}\sum_{j=1}^k [f(\mathbf{x}_{(j)}) - f(\mathbf{x}_q)] \quad (\text{bias}),
 $$
+
 $$
 \text{Var}[\hat{y}_q] = \frac{\sigma^2}{k}.
 $$
+
 **Interpretation:**
 - **Variance** decreases as $\sigma^2 / k$: larger $k$ averages out noise.
 - **Bias** grows with $k$ because distant neighbors have $f$ values farther from $f(\mathbf{x}_q)$ (assuming $f$ is smooth — the bias is small for small $k$ if $f$ varies smoothly).
@@ -1640,9 +1719,11 @@ Questions below are organized by difficulty: **Foundational**, **Mathematical**,
 **Q9. Derive the bias–variance decomposition of kNN regression.**
 
 **Answer.** Assume $y = f(\mathbf{x}) + \epsilon$ with $\mathbb{E}[\epsilon] = 0$, $\text{Var}[\epsilon] = \sigma^2$, independent noise. Condition on the nearest-neighbor set $\{(\mathbf{x}_{(j)}, y_{(j)})\}_{j=1}^k$. Then
+
 $$
 \hat{y}_q = \tfrac{1}{k}\sum_{j=1}^k (f(\mathbf{x}_{(j)}) + \epsilon_{(j)}).
 $$
+
 - $\mathbb{E}[\hat{y}_q] = \tfrac{1}{k}\sum_j f(\mathbf{x}_{(j)})$.
 - $\text{Bias} = \tfrac{1}{k}\sum_j [f(\mathbf{x}_{(j)}) - f(\mathbf{x}_q)]$ — grows with $k$ because farther neighbors differ more from $f(\mathbf{x}_q)$.
 - $\text{Var}[\hat{y}_q] = \sigma^2 / k$ — shrinks with $k$.
@@ -1653,9 +1734,11 @@ $$
 **Q10. Prove that Euclidean and cosine distance give the same neighbor ordering for L2-normalized vectors.**
 
 **Answer.** For $\|\mathbf{x}\| = \|\mathbf{y}\| = 1$:
+
 $$
 \|\mathbf{x} - \mathbf{y}\|_2^2 = \|\mathbf{x}\|^2 + \|\mathbf{y}\|^2 - 2\mathbf{x}^\top\mathbf{y} = 2 - 2\cos\theta = 2(1 - \cos\theta) = 2 d_{\cos}(\mathbf{x}, \mathbf{y}).
 $$
+
 So $\|\mathbf{x} - \mathbf{y}\|_2^2$ is a monotonically increasing function of $d_{\cos}$. Thus the ordering of neighbors by Euclidean distance equals the ordering by cosine distance. Without normalization, the relation fails: large-norm vectors are penalized more by Euclidean than by cosine.
 
 ---
@@ -1663,9 +1746,11 @@ So $\|\mathbf{x} - \mathbf{y}\|_2^2$ is a monotonically increasing function of $
 **Q11. Show that Mahalanobis distance equals Euclidean distance after whitening.**
 
 **Answer.** Let $\Sigma$ be symmetric positive-definite with $\Sigma^{-1/2} = U\Lambda^{-1/2}U^\top$ (from eigendecomposition $\Sigma = U\Lambda U^\top$). Then
+
 $$
 d_M(\mathbf{x}, \mathbf{y})^2 = (\mathbf{x}-\mathbf{y})^\top \Sigma^{-1}(\mathbf{x}-\mathbf{y}) = (\Sigma^{-1/2}(\mathbf{x}-\mathbf{y}))^\top (\Sigma^{-1/2}(\mathbf{x}-\mathbf{y})) = \|\Sigma^{-1/2}\mathbf{x} - \Sigma^{-1/2}\mathbf{y}\|_2^2.
 $$
+
 So the linear transform $\mathbf{x} \mapsto \Sigma^{-1/2}\mathbf{x}$ (whitening) converts Mahalanobis into Euclidean.
 
 ---

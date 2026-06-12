@@ -500,9 +500,11 @@ Compute gradients:
 **Step 4. Iterate** over all pairs for many epochs. After training, $\mathbf{v}_{\text{cat}}$ and $\mathbf{v}_{\text{mat}}$ end up close because they share contexts like `the _ sat` and `on the _`; they are pushed away from `the` because `the` is an effective negative sample.
 
 **Step 5. Query.** Cosine similarity:
+
 $$
 \cos(\mathbf{v}_{\text{cat}}, \mathbf{v}_{\text{mat}}) = \frac{\mathbf{v}_{\text{cat}} \cdot \mathbf{v}_{\text{mat}}}{\|\mathbf{v}_{\text{cat}}\| \|\mathbf{v}_{\text{mat}}\|}
 $$
+
 should be higher than $\cos(\mathbf{v}_{\text{cat}}, \mathbf{v}_{\text{the}})$.
 
 **Analogy example.** On a real-world-trained 300d Word2Vec, the vector $\vec{\text{king}} - \vec{\text{man}} + \vec{\text{woman}}$ has `queen` as its nearest neighbor in cosine distance. The reason (informally): training forces $\vec{\text{king}} - \vec{\text{queen}} \approx \vec{\text{man}} - \vec{\text{woman}}$ because both differences capture the gender dimension extracted from co-occurrence patterns.
@@ -716,9 +718,11 @@ BERT is used by *fine-tuning*: add a thin task head, train end-to-end on labeled
 ### GPT (Generative Pre-trained Transformer, 2018+)
 
 A Transformer *decoder* stack with causal (left-to-right) masking. Pretrained on next-token prediction:
+
 $$
 \mathcal{L} = -\sum_t \log p(x_t \mid x_1, \dots, x_{t-1})
 $$
+
 Later versions (GPT-2, 3, 4) scaled to billions/trillions of parameters and introduced in-context learning — performing new tasks from a few examples in the prompt, without weight updates.
 
 **GPT embeddings** can be obtained by running the model forward and extracting hidden states; often the final layer's representation of the final token is used to summarize a prompt.
@@ -801,15 +805,19 @@ Every token is a training signal, in contrast to MLM's 15%. This is why decoder-
 Given a pair of sentences $(s_a, s_b)$ with label $y \in \{0, 1\}$ (entailment/not, or semantic similar/not), pass each through the *same* BERT (siamese), pool token representations to get $\mathbf{u}, \mathbf{v}$, and optimize:
 
 *Classification objective (NLI)*:
+
 $$
 \mathbf{o} = \mathbf{W}\, [\mathbf{u}; \mathbf{v}; |\mathbf{u} - \mathbf{v}|]
 $$
+
 with cross-entropy against the label.
 
 *Triplet objective* for retrieval:
+
 $$
 \mathcal{L} = \max\!\left(0, \|\mathbf{u} - \mathbf{v}^+\|_2 - \|\mathbf{u} - \mathbf{v}^-\|_2 + \epsilon\right)
 $$
+
 pulls the anchor $\mathbf{u}$ closer to a positive $\mathbf{v}^+$ than to a negative $\mathbf{v}^-$ by margin $\epsilon$.
 
 ### Mapping math to intuition
@@ -1139,6 +1147,7 @@ $$
 Base case $\alpha_1(y) = \exp(\psi(y, x_1))$. Final: $Z(\mathbf{x}) = \sum_y \alpha_n(y)$. Complexity: $O(n |Y|^2)$.
 
 In log-space to avoid overflow:
+
 $$
 \log \alpha_t(y) = \psi(y, x_t) + \text{logsumexp}_{y'}\!\left(\log \alpha_{t-1}(y') + \phi(y', y)\right)
 $$
@@ -1146,17 +1155,21 @@ $$
 ### Training
 
 Negative log-likelihood:
+
 $$
 -\log p(\mathbf{y}^* \mid \mathbf{x}) = -\text{score}(\mathbf{y}^*, \mathbf{x}) + \log Z(\mathbf{x})
 $$
+
 Gradient: the first term is easy (just the score of the gold sequence). The second is $\nabla \log Z(\mathbf{x}) = \mathbb{E}_{p(\mathbf{y} \mid \mathbf{x})}[\nabla \text{score}(\mathbf{y}, \mathbf{x})]$, which is the expected feature count under the model and can be computed by forward-backward. Fortunately modern frameworks (PyTorch) give this automatically via autograd on the log $Z$ computation.
 
 ### Viterbi decoding
 
 At inference, find $\mathbf{y}^* = \arg\max_{\mathbf{y}} p(\mathbf{y} \mid \mathbf{x})$. Dynamic programming:
+
 $$
 \delta_t(y) = \max_{y'} \left[\delta_{t-1}(y') + \phi(y', y)\right] + \psi(y, x_t)
 $$
+
 with back-pointer $\beta_t(y) = \arg\max_{y'}[\delta_{t-1}(y') + \phi(y', y)]$. Trace back from $y_n^* = \arg\max_y \delta_n(y)$. Complexity: $O(n |Y|^2)$.
 
 ### BiLSTM-CRF architecture
@@ -1495,28 +1508,35 @@ Violated for long legal, scientific, or financial documents. Need hierarchical m
 $$
 p(y = 1 \mid \mathbf{x}) = \sigma(\mathbf{w}^\top \text{tfidf}(\mathbf{x}) + b)
 $$
+
 Trained by minimizing binary cross-entropy with L2 regularization.
 
 ### Softmax for multi-class
 
 For $K$ classes:
+
 $$
 p(y = k \mid \mathbf{x}) = \frac{\exp(\mathbf{w}_k^\top \boldsymbol{\phi}(\mathbf{x}) + b_k)}{\sum_{k'=1}^K \exp(\mathbf{w}_{k'}^\top \boldsymbol{\phi}(\mathbf{x}) + b_{k'})}
 $$
+
 where $\boldsymbol{\phi}(\mathbf{x})$ is the feature representation — TF-IDF, averaged embeddings, or `[CLS]`.
 
 ### Hierarchical attention (HAN)
 
 **Word-level attention** for sentence $s$:
+
 $$
 \mathbf{u}_{st} = \tanh(\mathbf{W}_w \mathbf{h}_{st} + \mathbf{b}_w), \quad \alpha_{st} = \frac{\exp(\mathbf{u}_{st}^\top \mathbf{u}_w)}{\sum_{t'} \exp(\mathbf{u}_{st'}^\top \mathbf{u}_w)}
 $$
+
 $$
 \mathbf{s}_s = \sum_t \alpha_{st} \mathbf{h}_{st}
 $$
+
 $\mathbf{u}_w$ is a learnable "word-context vector" — think of it as the query "what words matter for classification?" Each hidden state $\mathbf{h}_{st}$ is transformed (via a nonlinearity) and scored by inner product with this query.
 
 **Sentence-level attention**: identical formula with sentence encoder outputs and a sentence-context vector $\mathbf{u}_s$:
+
 $$
 \mathbf{v} = \sum_s \beta_s \mathbf{s}_s^{\text{enc}}
 $$
@@ -1526,31 +1546,39 @@ $$
 ### Transformer fine-tuning
 
 Input: `[CLS] x_1 ... x_n [SEP]`. Output: hidden state $\mathbf{h}_{[\text{CLS}]}$ from final layer. Classification:
+
 $$
 p(y) = \text{softmax}(\mathbf{W}_{\text{cls}} \text{Dropout}(\tanh(\mathbf{W}_{\text{pool}} \mathbf{h}_{[\text{CLS}]})) + \mathbf{b})
 $$
+
 (for BERT; some variants simplify). Loss: cross-entropy. All parameters trained, typically with LR $2 \times 10^{-5}$.
 
 ### Multi-label
 
 Replace softmax with per-class sigmoid:
+
 $$
 p(y_k = 1 \mid \mathbf{x}) = \sigma(\mathbf{w}_k^\top \boldsymbol{\phi}(\mathbf{x}) + b_k)
 $$
+
 Loss: sum of binary cross-entropies. At inference, threshold (default 0.5, optimized on dev).
 
 ### Class-weighted and focal loss
 
 For imbalance:
+
 $$
 \mathcal{L}_{\text{weighted}} = -\sum_k w_k y_k \log p_k, \quad w_k = \frac{N}{K \cdot N_k}
 $$
+
 where $N_k$ is the number of examples in class $k$.
 
 Focal loss (Lin et al., for imbalance and hard examples):
+
 $$
 \mathcal{L}_{\text{focal}} = -\sum_k (1 - p_k)^\gamma y_k \log p_k
 $$
+
 The $(1 - p_k)^\gamma$ factor downweights easy examples (high $p_k$ for correct class), focusing training on hard ones.
 
 ### Mapping math to intuition
@@ -1811,25 +1839,31 @@ Modern decoding methods (top-k, nucleus/top-p, temperature, repetition penalties
 ### Autoregressive generation
 
 Language models factorize sequence probability via the chain rule:
+
 $$
 p(\mathbf{x}) = \prod_{t=1}^n p(x_t \mid x_1, \dots, x_{t-1})
 $$
+
 At each step, sample or select a token, append to context, repeat until end-of-sequence or max length.
 
 ### Decoding strategies
 
 **Greedy decoding.** At each step, pick the argmax.
+
 $$
 x_t = \arg\max_v p(v \mid x_{1:t-1})
 $$
+
 Fast, deterministic, but often falls into repetition loops (high-probability continuations often lead to more of the same).
 
 **Beam search.** Maintain the top-$B$ partial sequences (beams), extending each by every token, keeping the top-$B$ of the expanded set at each step. Used heavily in machine translation and summarization.
 
 **Temperature sampling.** Rescale logits by $1/T$ before softmax:
+
 $$
 p_T(v) = \frac{\exp(z_v / T)}{\sum_{v'} \exp(z_{v'} / T)}
 $$
+
 $T = 1$ is the original distribution. $T \to 0$ approaches greedy. $T \to \infty$ approaches uniform. Higher $T$ = more diverse, less coherent.
 
 **Top-k sampling.** At each step, restrict the distribution to the top $k$ most probable tokens, renormalize, sample.
@@ -1837,9 +1871,11 @@ $T = 1$ is the original distribution. $T \to 0$ approaches greedy. $T \to \infty
 **Top-p (nucleus) sampling** (Holtzman et al., 2019). Dynamically pick the smallest set of tokens whose cumulative probability exceeds $p$, renormalize, sample. Adaptive to the distribution's sharpness: in confident regions (next token obvious), the nucleus is small; in uncertain regions, it's larger.
 
 **Repetition penalty.** Penalize logits of tokens that recently appeared to avoid loops:
+
 $$
 z_v \leftarrow z_v / r \quad \text{if } v \in \text{recent tokens}
 $$
+
 with $r > 1$.
 
 **Contrastive search** (Su et al., 2022). Pick the token that maximizes a trade-off between probability and diversity from previous context.
@@ -1873,15 +1909,19 @@ Partially violated: models have learned biases about sequence length. Controllin
 ### Beam search
 
 At step $t$, maintain a beam $\mathcal{B}_t$ of size $B$ containing partial sequences and their scores. For each $(\mathbf{y}, s) \in \mathcal{B}_{t-1}$, expand:
+
 $$
 \mathcal{C}_t = \{(\mathbf{y} \cdot v, s + \log p(v \mid \mathbf{y})) : v \in V\}
 $$
+
 Keep top $B$ by score: $\mathcal{B}_t = \text{top-}B\,\mathcal{C}_t$.
 
 A pure log-probability objective favors short sequences. Length normalization:
+
 $$
 \text{score}(\mathbf{y}) = \frac{1}{|\mathbf{y}|^\alpha} \sum_{t=1}^{|\mathbf{y}|} \log p(y_t \mid y_{<t})
 $$
+
 with $\alpha \in [0.6, 1.0]$ typical for NMT.
 
 ### Temperature and entropy
@@ -1899,9 +1939,11 @@ Sort tokens by probability descending. Let $V_p$ be the smallest set such that $
 ### Classifier-guided generation (FUDGE, Yang & Klein 2021)
 
 Want to generate a sequence satisfying attribute $a = 1$. By Bayes:
+
 $$
 p(x_t \mid x_{<t}, a=1) \propto p(x_t \mid x_{<t}) \cdot p(a=1 \mid x_{\le t})
 $$
+
 The first factor is the base LM; the second is an attribute classifier. Train a lightweight classifier; use its scores to reweight logits at each step.
 
 ### RLHF — mathematical sketch
@@ -2165,13 +2207,17 @@ Given input sentence tokenized and wrapped with entity markers:
 `[CLS] ... [E1] subj [/E1] ... [E2] obj [/E2] ... [SEP]`
 
 Encode with BERT to get hidden states $\{\mathbf{h}_i\}$. Form a relation representation:
+
 $$
 \mathbf{r} = [\mathbf{h}_{[\text{CLS}]}; \mathbf{h}_{[\text{E1}]}; \mathbf{h}_{[\text{E2}]}]
 $$
+
 (concatenation). Classify:
+
 $$
 p(r \mid s, e_1, e_2) = \text{softmax}(\mathbf{W}_r \mathbf{r} + \mathbf{b}_r)
 $$
+
 Loss: cross-entropy. Often the relation set includes a `no_relation` class.
 
 ### Multi-instance learning for distant supervision
@@ -2179,14 +2225,17 @@ Loss: cross-entropy. Often the relation set includes a `no_relation` class.
 Given a bag $\mathcal{B}_{ij}$ of sentences each mentioning entity pair $(e_i, e_j)$, and the KB's label $r_{ij}$, we want to train without knowing which sentence actually expresses the relation. Two common objectives:
 
 *At-least-one (Mintz heuristic)*: assume at least one sentence expresses $r_{ij}$:
+
 $$
 p(r_{ij} \mid \mathcal{B}_{ij}) = \max_{s \in \mathcal{B}_{ij}} p(r_{ij} \mid s)
 $$
 
 *Attention over sentences* (Lin et al., 2016):
+
 $$
 \mathbf{b} = \sum_{s \in \mathcal{B}_{ij}} \alpha_s \mathbf{h}_s, \quad \alpha_s = \text{softmax}(\mathbf{h}_s^\top \mathbf{W} \mathbf{r})
 $$
+
 where $\mathbf{r}$ is the relation query vector. The attention allows the model to focus on sentences that truly express the relation.
 
 ### Event extraction — joint trigger and argument
@@ -2194,6 +2243,7 @@ where $\mathbf{r}$ is the relation query vector. The attention allows the model 
 For each token $t$, predict trigger label (including None). For each (trigger, entity) pair in the sentence, predict argument role (including None).
 
 Joint loss:
+
 $$
 \mathcal{L} = \mathcal{L}_{\text{trigger}} + \lambda \mathcal{L}_{\text{argument}}
 $$
@@ -2538,9 +2588,11 @@ Retrieval failures are the bottleneck for most open-domain systems. If the retri
 ### Extractive QA loss
 
 Given gold start $s^*$ and end $e^*$ positions:
+
 $$
 \mathcal{L} = -\log p_{\text{start}}(s^*) - \log p_{\text{end}}(e^*)
 $$
+
 The start and end are trained independently; the model learns to jointly predict them by sharing the encoder.
 
 ### Span scoring at inference
@@ -2550,6 +2602,7 @@ Best span $(i, j)$ maximizes $\log p_{\text{start}}(i) + \log p_{\text{end}}(j)$
 ### Generative QA loss
 
 Standard seq2seq cross-entropy:
+
 $$
 \mathcal{L} = -\sum_t \log p(y_t \mid y_{<t}, Q, P)
 $$
@@ -2557,6 +2610,7 @@ $$
 ### Retriever loss (in-batch contrastive)
 
 For batch of $B$ (question, positive passage) pairs, treat other passages in the batch as negatives. For pair $i$:
+
 $$
 \mathcal{L}_i = -\log \frac{\exp(s(q_i, p_i))}{\sum_{j=1}^B \exp(s(q_i, p_j))}
 $$
@@ -2890,15 +2944,19 @@ Violated. Abstractive models routinely invent facts (hallucinations), especially
 ### TextRank
 
 Build a graph $G = (V, E)$ where $V$ is sentences and edges weighted by similarity:
+
 $$
 w(s_i, s_j) = \frac{|\{w : w \in s_i \cap s_j\}|}{\log|s_i| + \log|s_j|}
 $$
+
 (original formulation; many variants use cosine similarity on TF-IDF or embeddings).
 
 PageRank-style iterative score:
+
 $$
 \text{score}(s_i) = (1 - d) + d \sum_{s_j \in N(s_i)} \frac{w(s_i, s_j)}{\sum_{s_k \in N(s_j)} w(s_j, s_k)} \cdot \text{score}(s_j)
 $$
+
 where $d \approx 0.85$ is the damping factor. Iterate until convergence.
 
 Select top-$k$ sentences by score; order them as they appear in the original document.
@@ -2916,12 +2974,15 @@ Loss: binary cross-entropy per sentence.
 ### Pointer-generator
 
 At decoder step $t$, generate from vocabulary with probability $p_{\text{gen}}$ or copy from source with probability $1 - p_{\text{gen}}$:
+
 $$
 p(w) = p_{\text{gen}} \cdot p_{\text{vocab}}(w) + (1 - p_{\text{gen}}) \sum_{i: x_i = w} \alpha_{t,i}
 $$
+
 where $\alpha_{t,i}$ is the attention weight over source positions. The model learns when to copy (rare entities, numbers) vs. generate.
 
 $p_{\text{gen}}$ is itself computed from decoder state, context vector, and current input:
+
 $$
 p_{\text{gen}} = \sigma(\mathbf{w}_c^\top \mathbf{c}_t + \mathbf{w}_s^\top \mathbf{s}_t + \mathbf{w}_x^\top \mathbf{x}_t + b)
 $$
@@ -2933,6 +2994,7 @@ Pretraining: for each document, mask entire sentences deemed "important" (by ROU
 ### ROUGE
 
 ROUGE-N: n-gram recall of candidate summary against reference.
+
 $$
 \text{ROUGE-N} = \frac{\sum_{S \in \{\text{Ref}\}} \sum_{\text{gram}_n \in S} \text{Count}_{\text{match}}(\text{gram}_n)}{\sum_{S \in \{\text{Ref}\}} \sum_{\text{gram}_n \in S} \text{Count}(\text{gram}_n)}
 $$
@@ -3223,9 +3285,11 @@ The core challenge: map a variable-length sequence in one language to a variable
 ### Attention for translation — the key mechanism
 
 The decoder at step $t$ attends to encoder hidden states $\mathbf{h}_1, \dots, \mathbf{h}_n$ (source positions):
+
 $$
 \alpha_{t,i} = \frac{\exp(\text{score}(\mathbf{s}_t, \mathbf{h}_i))}{\sum_j \exp(\text{score}(\mathbf{s}_t, \mathbf{h}_j))}, \quad \mathbf{c}_t = \sum_i \alpha_{t,i} \mathbf{h}_i
 $$
+
 The context vector $\mathbf{c}_t$ is a soft alignment: "which source word am I translating now?" The decoder produces the next token conditioned on $\mathbf{s}_t$ and $\mathbf{c}_t$.
 
 Different scoring functions:
@@ -3260,6 +3324,7 @@ The model learns:
 ### Evaluation
 
 **BLEU**: n-gram precision against reference, with brevity penalty. De facto but flawed.
+
 $$
 \text{BLEU} = \text{BP} \cdot \exp\left(\sum_n w_n \log p_n\right)
 $$
@@ -3306,29 +3371,37 @@ Encoder stack: $N$ layers of self-attention + FFN. Decoder stack: $N$ layers of 
 ### Label smoothing
 
 In MT it is standard:
+
 $$
 y_k^{\text{smooth}} = (1 - \epsilon) \mathbb{1}[k = y^*] + \epsilon / K
 $$
+
 with $\epsilon = 0.1$. Prevents overconfidence, improves BLEU ~0.5 on average.
 
 ### Back-translation formal
 
 Target-to-source model $p_{\theta_{t \to s}}(x \mid y)$. Given monolingual target $\mathcal{M}_{\text{tgt}}$:
+
 $$
 \tilde{\mathcal{D}} = \{(\hat{x}, y) : y \in \mathcal{M}_{\text{tgt}}, \hat{x} \sim p_{\theta_{t \to s}}(\cdot \mid y)\}
 $$
+
 Train final source-to-target model on $\mathcal{D} \cup \tilde{\mathcal{D}}$. Variants use sampling (noisier, more diverse) or beam (cleaner, less diverse) for back-translation; sampling tends to help more.
 
 ### BLEU
 
 $p_n$ = clipped n-gram precision (each reference n-gram counted at most the number of times it appears).
+
 $$
 \text{BP} = \begin{cases} 1 & \text{if } c > r \\ \exp(1 - r/c) & \text{otherwise} \end{cases}
 $$
+
 where $c$ is candidate length, $r$ is reference length.
+
 $$
 \text{BLEU} = \text{BP} \cdot \exp\left(\sum_{n=1}^N w_n \log p_n\right)
 $$
+
 typically $N = 4$, $w_n = 1/4$ each.
 
 ### Multilingual objective
@@ -3336,10 +3409,13 @@ typically $N = 4$, $w_n = 1/4$ each.
 $$
 \mathcal{L} = \sum_{(l_s, l_t) \in \mathcal{L}} \mathbb{E}_{(x, y) \sim \mathcal{D}_{l_s, l_t}}[-\log p(y \mid x, l_s, l_t)]
 $$
+
 summed over all language pairs. Temperature sampling balances high- and low-resource pairs during training:
+
 $$
 p(l_s, l_t) \propto |\mathcal{D}_{l_s, l_t}|^\alpha
 $$
+
 with $\alpha \in [0.3, 0.7]$ to upsample low-resource.
 
 ### Mapping math to intuition

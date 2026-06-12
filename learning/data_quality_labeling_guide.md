@@ -181,17 +181,21 @@ These trade-offs are the subject of the *data quality triangle* folklore — you
 ### 3.1 Accuracy and measurement error
 
 Let $x_i$ be the true value of attribute $X$ for record $i$, and $\hat{x}_i$ be the recorded value. The measurement error is
+
 $$
 \varepsilon_i = \hat{x}_i - x_i.
 $$
 
 The classical decomposition is
+
 $$
 \varepsilon_i = b + \eta_i, \quad \mathbb{E}[\eta_i] = 0, \quad \text{Var}(\eta_i) = \sigma^2,
 $$
+
 where $b$ is the systematic bias and $\eta_i$ is zero-mean random noise.
 
 **Mean Squared Error (MSE)** of the measurement process is
+
 $$
 \text{MSE} = \mathbb{E}[(\hat{x} - x)^2] = b^2 + \sigma^2.
 $$
@@ -202,6 +206,7 @@ This is the familiar bias–variance decomposition applied to the measurement de
 - If variance dominates ($\sigma^2 \gg b^2$): average over more measurements. Bias will not shrink.
 
 For categorical attributes, accuracy is measured as an **error rate**:
+
 $$
 \text{Acc} = \frac{1}{n}\sum_{i=1}^n \mathbb{1}[\hat{x}_i = x_i].
 $$
@@ -223,24 +228,29 @@ Under MCAR and MAR, the missingness mechanism is **ignorable** for likelihood-ba
 **Little's MCAR test** provides a χ² test statistic for the null hypothesis that the data is MCAR. Rejecting MCAR does not tell you whether you are in MAR or MNAR, but failing to reject is weak evidence for MCAR.
 
 **Completeness rate** for attribute $j$:
+
 $$
 C_j = 1 - \frac{1}{n}\sum_{i=1}^n M_{ij}.
 $$
 
 **Coverage** against an expected population $\mathcal{P}$ with known segment proportions $\pi_k$:
+
 $$
 \text{Coverage}_k = \frac{n_k / n}{\pi_k},
 $$
+
 which equals 1 under perfect proportional representation, < 1 under under-sampling, > 1 under over-sampling.
 
 ### 3.3 Consistency metrics
 
 Let $v^{(A)}$ and $v^{(B)}$ be the values of the same attribute for the same entity in sources $A$ and $B$. The **pairwise consistency rate** is
+
 $$
 \text{Consist}(A, B) = \frac{1}{n} \sum_{i=1}^n \mathbb{1}[v_i^{(A)} = v_i^{(B)}].
 $$
 
 For continuous attributes, equality is replaced with tolerance:
+
 $$
 \mathbb{1}[|v_i^{(A)} - v_i^{(B)}| \le \tau].
 $$
@@ -258,19 +268,23 @@ Let $t_\text{event}$ be the real-world event timestamp and $t_\text{avail}$ the 
 A common SLA formulation is a quantile constraint: $P(L_i > L_\text{max}) < \alpha$ (e.g., 99% of records within 5 minutes).
 
 The **effective freshness decay** of a feature can be modeled as an exponential relevance function:
+
 $$
 r(F) = \exp(-F / \tau),
 $$
+
 where $\tau$ is a half-life governed by the rate of change of the underlying process.
 
 ### 3.5 Validity rates
 
 For a set of $K$ validity rules $R_1, \ldots, R_K$, the per-rule violation rate is
+
 $$
 V_k = \frac{1}{n}\sum_{i=1}^n \mathbb{1}[\text{record } i \text{ violates } R_k].
 $$
 
 The **record-level validity rate** is
+
 $$
 V = \frac{1}{n}\sum_{i=1}^n \mathbb{1}\left[\bigwedge_k R_k(i)\right].
 $$
@@ -472,12 +486,15 @@ It is infeasible when:
 ### 3. Mathematical Formulation
 
 **The observation model.** For item $i$ with true label $y_i$, annotator $a$ reports label $\hat{y}_{i,a}$. Model the annotator as a confusion matrix $\theta^{(a)}$ with
+
 $$
 \theta^{(a)}_{j,k} = P(\hat{y}_{i,a} = k \mid y_i = j).
 $$
+
 A perfect annotator has $\theta^{(a)} = I$.
 
 **Majority vote** estimator:
+
 $$
 \hat{y}_i^{\text{MV}} = \arg\max_k \sum_{a=1}^A \mathbb{1}[\hat{y}_{i,a} = k].
 $$
@@ -485,10 +502,13 @@ $$
 **Dawid–Skene EM algorithm.** Treat $y_i$ as latent, $\theta^{(a)}$ and class priors $\pi_k = P(y_i = k)$ as parameters.
 
 - **E-step**: Compute soft labels given current parameter estimates.
+
 $$
 q_{i,k} = P(y_i = k \mid \hat{y}_{i,1}, \ldots, \hat{y}_{i,A}) \propto \pi_k \prod_{a=1}^A \theta^{(a)}_{k, \hat{y}_{i,a}}.
 $$
+
 - **M-step**: Update parameters.
+
 $$
 \pi_k = \frac{1}{n}\sum_i q_{i,k}, \quad \theta^{(a)}_{j,k} = \frac{\sum_i q_{i,j} \mathbb{1}[\hat{y}_{i,a} = k]}{\sum_i q_{i,j}}.
 $$
@@ -496,9 +516,11 @@ $$
 Iterate until convergence. Initialize with majority vote.
 
 **Cost model.** Suppose each label costs $c$ per annotator and we use $k$ annotators per item. Labeling $n$ items costs $nkc$. If individual annotator accuracy is $p$, the majority-vote accuracy with $k$ annotators is (by the binomial tail)
+
 $$
 \text{Acc}_k = \sum_{j=\lceil k/2 \rceil}^k \binom{k}{j} p^j (1-p)^{k-j}.
 $$
+
 For $p = 0.8$: $k=1 \to 0.80$, $k=3 \to 0.896$, $k=5 \to 0.942$. Each redundancy doubling yields diminishing returns.
 
 ### 4. Worked Examples
@@ -519,12 +541,15 @@ After a pilot batch: per-annotator accuracy on gold questions ranges from 0.58 t
 - $\theta^{(1)} = \theta^{(2)} = \theta^{(3)} = \begin{pmatrix} 0.9 & 0.1 \\ 0.2 & 0.8 \end{pmatrix}$
 
 (rows = true label, columns = reported label). Compute:
+
 $$
 P(y=1 \mid \hat{y}) \propto 0.5 \cdot 0.8 \cdot 0.8 \cdot 0.2 = 0.064,
 $$
+
 $$
 P(y=0 \mid \hat{y}) \propto 0.5 \cdot 0.1 \cdot 0.1 \cdot 0.9 = 0.0045.
 $$
+
 Normalizing: $P(y=1 \mid \hat{y}) \approx 0.934$. Majority vote said 1; Dawid–Skene agrees but with calibrated confidence. The soft label 0.934 is usable for loss weighting.
 
 ### 5. Relevance to ML Practice
@@ -624,37 +649,45 @@ The discriminative model in step 5 is the actual deployed classifier. The weak-s
 **Setup.** $n$ unlabeled examples, $m$ LFs, $K$ classes. The label matrix $\Lambda \in \{-1, 0, 1, \ldots, K\}^{n \times m}$ where $\Lambda_{i,j} = 0$ means abstain (or equivalently $\Lambda_{i,j} \in \{ABSTAIN\} \cup \{1, \ldots, K\}$).
 
 **Generative model (binary case).** Model the true label $Y \in \{-1, +1\}$ with prior $\pi$, and each LF's output $\lambda_j \in \{-1, 0, +1\}$ with conditional distribution
+
 $$
 P(\lambda_j \mid Y) \text{ parameterized by } \alpha_j \text{ (accuracy) and } \beta_j \text{ (coverage)}.
 $$
 
 A common parameterization:
+
 $$
 P(\lambda_j = 0 \mid Y) = 1 - \beta_j, \quad P(\lambda_j = Y \mid Y, \lambda_j \ne 0) = \alpha_j.
 $$
 
 The joint probability, assuming conditional independence:
+
 $$
 P(Y, \lambda_1, \ldots, \lambda_m) = P(Y) \prod_{j=1}^m P(\lambda_j \mid Y).
 $$
 
 **Learning without labels.** Given $n$ samples of $\Lambda$, maximize the marginal log-likelihood:
+
 $$
 \mathcal{L}(\theta) = \sum_{i=1}^n \log \sum_{y \in \{-1, +1\}} P(Y = y) \prod_{j=1}^m P(\lambda_{i,j} \mid Y = y; \theta).
 $$
 
 Identifiability: with $m \ge 3$ LFs that are pairwise conditionally independent given $Y$, the parameters $\alpha_j$ are identifiable from the observable agreement rates between LFs (Ratner et al., "triplet method"). The key identity: for LFs $j, k$ that are conditionally independent given $Y$,
+
 $$
 \mathbb{E}[\lambda_j \lambda_k \mid |\lambda_j|=|\lambda_k|=1] = \mathbb{E}[\lambda_j Y] \cdot \mathbb{E}[\lambda_k Y].
 $$
+
 Three such equations over three pairs $(j,k), (j,l), (k,l)$ let you solve for each individual $\mathbb{E}[\lambda_j Y]$ — i.e., each LF's accuracy — up to a global sign.
 
 **Soft label output.** Posterior probability per example:
+
 $$
 \tilde{y}_i = P(Y = 1 \mid \Lambda_{i, \cdot}) = \frac{P(Y=1) \prod_j P(\lambda_{ij} \mid Y=1)}{\sum_y P(Y=y) \prod_j P(\lambda_{ij} \mid Y=y)}.
 $$
 
 **Noise-aware discriminative loss.** When training the downstream model $f_\phi$ with soft labels $\tilde{y}_i \in [0,1]$ (for binary), use expected cross-entropy:
+
 $$
 \mathcal{L}(\phi) = -\sum_{i=1}^n \left[ \tilde{y}_i \log f_\phi(x_i) + (1 - \tilde{y}_i) \log(1 - f_\phi(x_i)) \right].
 $$
@@ -685,21 +718,27 @@ With just 5 examples, estimates are noisy, but the method scales: on 10,000 unla
 Assume the label model estimates: $\alpha_1 = 0.9$, $\alpha_2 = 0.7$, $\alpha_5 = 0.95$, LF3 accuracy $0.8$, LF4 accuracy $0.85$, prior $\pi = 0.3$ (spam).
 
 For x₁: LF1, LF2, LF5 all say +1.
+
 $$
 P(Y=+1 \mid \Lambda) \propto 0.3 \cdot 0.9 \cdot 0.7 \cdot 0.95 = 0.18
 $$
+
 $$
 P(Y=-1 \mid \Lambda) \propto 0.7 \cdot (1-0.9) \cdot (1-0.7) \cdot (1-0.95) = 0.00105
 $$
+
 Posterior ≈ 0.994 spam. Very confident.
 
 For x₃: only LF2 fires with +1.
+
 $$
 P(Y=+1 \mid \Lambda) \propto 0.3 \cdot 0.7 = 0.21
 $$
+
 $$
 P(Y=-1 \mid \Lambda) \propto 0.7 \cdot 0.3 = 0.21
 $$
+
 Posterior ≈ 0.5. LF2 alone, with accuracy 0.7 and low prior, is not informative enough to override the prior. A soft label near 0.5 tells the downstream model to essentially ignore this example.
 
 This illustrates the signature behavior: high-confidence soft labels when many good LFs agree, noncommittal labels when evidence is weak.
@@ -813,37 +852,47 @@ This is the right tool when:
 ### 3. Mathematical Formulation
 
 **Least confidence acquisition.**
+
 $$
 a_{\text{LC}}(x) = 1 - \max_y P(y \mid x; \theta).
 $$
+
 Select $\arg\max_x a_{\text{LC}}(x)$.
 
 **Entropy.**
+
 $$
 a_H(x) = -\sum_y P(y \mid x; \theta) \log P(y \mid x; \theta).
 $$
 
 **Query by Committee — vote entropy.** Ensemble of $C$ classifiers. Let $V(y, x) = \sum_{c=1}^C \mathbb{1}[h_c(x) = y]$.
+
 $$
 a_{\text{VE}}(x) = -\sum_y \frac{V(y, x)}{C} \log \frac{V(y, x)}{C}.
 $$
 
 **BALD** (mutual information between label and parameters):
+
 $$
 a_{\text{BALD}}(x) = H\left[\mathbb{E}_\theta[P(y \mid x, \theta)]\right] - \mathbb{E}_\theta\left[H[P(y \mid x, \theta)]\right].
 $$
+
 This is **(predictive entropy)** − **(expected entropy under each parameter draw)**. High when the model is uncertain overall (first term high) but each individual parameter draw is confident (second term low) — i.e., when the ensemble disagrees confidently. Sometimes called "epistemic uncertainty" disentangled from aleatoric.
 
 **Expected Error Reduction** (binary, for concreteness). For candidate $x^*$, assume labeling it $y$ changes the model to $\theta^{+(x^*, y)}$. Then the expected error reduction is
+
 $$
 a_{\text{EER}}(x^*) = \mathbb{E}_{y^* \sim P(y \mid x^*; \theta)} \left[ \sum_{x \in \mathcal{U}} \left(1 - \max_y P(y \mid x; \theta^{+(x^*, y^*)})\right) \right].
 $$
+
 We want to minimize post-labeling expected error on the unlabeled pool $\mathcal{U}$. Computational cost: $O(|U|^2 \times K)$ per iteration — tractable only for small pools.
 
 **BatchBALD** generalizes BALD to sets:
+
 $$
 a_{\text{BatchBALD}}(\{x_1, \ldots, x_b\}) = I(Y_1, \ldots, Y_b ; \theta \mid x_1, \ldots, x_b).
 $$
+
 The joint mutual information naturally penalizes redundant points: two near-identical points yield almost the same information as one, so the set score does not double.
 
 ### 4. Worked Examples
@@ -937,9 +986,11 @@ Concrete example: in a MNIST digit classification problem with 100 labeled and 6
 Variants: Noisy Student (iterative self-training with stronger student architectures and input noise), MixMatch, FixMatch.
 
 **(B) Consistency regularization.** Key idea: for any unlabeled example, two slightly different views of it (augmentations, dropout perturbations) should yield similar predictions. Enforce this via a consistency loss:
+
 $$
 \mathcal{L}_{\text{cons}} = \|f(x) - f(x')\|^2
 $$
+
 where $x'$ is a perturbed version of $x$. This is a regularizer that encodes the smoothness assumption directly.
 
 **(C) Entropy minimization.** Train the model to produce low-entropy (confident) predictions on unlabeled data. Drives the decision boundary into low-density regions.
@@ -963,27 +1014,35 @@ where $x'$ is a perturbed version of $x$. This is a regularizer that encodes the
 **Notation.** Labeled set $\mathcal{D}_L = \{(x_i, y_i)\}_{i=1}^{n_L}$, unlabeled set $\mathcal{D}_U = \{x_j\}_{j=1}^{n_U}$, model $f_\theta(x) \in \Delta^{K-1}$ (predicted distribution over $K$ classes).
 
 **Self-training / pseudo-labeling.** Standard form:
+
 $$
 \mathcal{L}(\theta) = \underbrace{\frac{1}{n_L} \sum_{(x,y)\in\mathcal{D}_L} \ell(f_\theta(x), y)}_{\text{supervised loss}} + \lambda_u \underbrace{\frac{1}{n_U} \sum_{x\in\mathcal{D}_U} \mathbb{1}[\max_k f_\theta(x)_k > \tau] \cdot \ell(f_\theta(x), \hat{y})}_{\text{pseudo-label loss}}
 $$
+
 where $\hat{y} = \arg\max_k f_\theta(x)_k$ and $\tau$ is a confidence threshold (commonly 0.95).
 
 **Consistency regularization.** Let $T$ be an augmentation distribution. Loss:
+
 $$
 \mathcal{L}_{\text{cons}}(\theta) = \mathbb{E}_{x \in \mathcal{D}_U, t_1, t_2 \sim T}\left[ d(f_\theta(t_1(x)), f_\theta(t_2(x))) \right].
 $$
+
 $d$ is a divergence: squared $L_2$, cross-entropy, KL. Often one view is passed through a "teacher" with stop-gradient.
 
 **FixMatch loss.**
+
 $$
 \mathcal{L}(\theta) = \mathcal{L}_s + \lambda_u \mathcal{L}_u,
 $$
+
 $$
 \mathcal{L}_u = \frac{1}{\mu B} \sum_{b=1}^{\mu B} \mathbb{1}\left[\max_k p_m(y | \alpha(u_b)) > \tau\right] \cdot H(\hat{y}_b, p_m(y | \mathcal{A}(u_b))),
 $$
+
 where $\alpha$ is weak augmentation, $\mathcal{A}$ is strong augmentation, $\hat{y}_b = \arg\max p_m(y|\alpha(u_b))$, $\tau = 0.95$ typically. The key structural feature: pseudo-labels come from *weak* augmentation, gradients flow through *strong* augmentation. This implicitly encodes the smoothness assumption (weak aug ≈ original; strong aug is a perturbed view that should still map to the same label).
 
 **Entropy minimization.** Add a regularizer:
+
 $$
 \mathcal{L}_{\text{ent}}(\theta) = \frac{1}{n_U} \sum_{x \in \mathcal{D}_U} H(f_\theta(x)) = -\frac{1}{n_U} \sum_x \sum_k f_\theta(x)_k \log f_\theta(x)_k.
 $$
@@ -991,9 +1050,11 @@ $$
 This pushes predictions away from the uniform distribution and towards one-hot — which is exactly what you want if the smoothness assumption holds, but is pathological if $P(Y\mid X)$ is genuinely high-entropy.
 
 **Label propagation.** Build an affinity matrix $W$ over all points (labeled + unlabeled). Define the graph Laplacian $L = D - W$. Label-propagation minimizes
+
 $$
 \sum_{i \in L} (f(x_i) - y_i)^2 + \mu f^\top L f,
 $$
+
 which solves to $f = (I - (1-\alpha) S)^{-1} Y$ for normalized propagation matrix $S$.
 
 ### 4. Worked Examples
@@ -1083,9 +1144,11 @@ The most famous metric is **Cohen's kappa** (κ), introduced in 1960. Its multi-
 **Expected (chance) agreement ($p_e$).** The fraction of items on which we'd expect agreement if each annotator independently drew labels from their own marginal label distribution.
 
 **Kappa.** The chance-corrected agreement:
+
 $$
 \kappa = \frac{p_o - p_e}{1 - p_e}.
 $$
+
 Interpretation:
 - $\kappa = 1$: perfect agreement.
 - $\kappa = 0$: agreement no better than chance.
@@ -1123,17 +1186,21 @@ For ML tasks, IAA < 0.6 usually means the task is ill-defined; 0.7–0.8 is typi
 ### 3. Mathematical Formulation
 
 **Cohen's kappa.** Two annotators label $n$ items into $K$ categories. Let $p_o$ be observed agreement rate:
+
 $$
 p_o = \frac{1}{n} \sum_{i=1}^n \mathbb{1}[\text{annotator } 1 \text{ and } 2 \text{ agree on item } i] = \sum_{k=1}^K P_{kk},
 $$
+
 where $P_{jk}$ is the fraction of items annotator 1 labeled $j$ and annotator 2 labeled $k$.
 
 Let $p_{1,k}$ = fraction of items annotator 1 labels $k$, and $p_{2,k}$ the same for annotator 2. Expected agreement under independence:
+
 $$
 p_e = \sum_{k=1}^K p_{1,k} \cdot p_{2,k}.
 $$
 
 Then
+
 $$
 \kappa = \frac{p_o - p_e}{1 - p_e}.
 $$
@@ -1141,6 +1208,7 @@ $$
 **Fleiss' kappa.** $n$ items, $N$ total annotators, each item labeled by $m$ of them (same $m$ per item). Let $n_{ik}$ = number of annotators who assigned category $k$ to item $i$.
 
 Per-item agreement:
+
 $$
 P_i = \frac{1}{m(m-1)} \left(\sum_{k=1}^K n_{ik}^2 - m\right).
 $$
@@ -1148,21 +1216,25 @@ $$
 This is the probability that two randomly chosen annotators agree on item $i$.
 
 Average observed agreement:
+
 $$
 \bar{P} = \frac{1}{n} \sum_{i=1}^n P_i.
 $$
 
 Marginal frequency of category $k$:
+
 $$
 p_k = \frac{1}{nm} \sum_{i=1}^n n_{ik}.
 $$
 
 Expected agreement:
+
 $$
 \bar{P}_e = \sum_{k=1}^K p_k^2.
 $$
 
 Fleiss' kappa:
+
 $$
 \kappa_F = \frac{\bar{P} - \bar{P}_e}{1 - \bar{P}_e}.
 $$
@@ -1178,12 +1250,15 @@ Quadratic weighted kappa is what Kaggle uses in many classification competitions
 **Krippendorff's alpha.** Define a distance metric $\delta$ appropriate to the data type. For nominal: $\delta(a, b) = \mathbb{1}[a \ne b]$. For interval: $\delta(a, b) = (a - b)^2$.
 
 Observed disagreement:
+
 $$
 D_o = \frac{1}{\sum_i m_i (m_i - 1)} \sum_i \sum_{j \ne k} n_{ij} n_{ik} \delta(j, k) / (m_i - 1),
 $$
+
 (with care over the exact formula; several equivalent forms exist).
 
 Expected disagreement:
+
 $$
 D_e = \frac{1}{n(n-1)} \sum_{j, k} n_j n_k \delta(j, k).
 $$
@@ -1347,12 +1422,15 @@ Beyond cost savings, gold sets serve distinct roles:
 ### 3. Mathematical Formulation
 
 **Gold label as consensus estimator.** For $m$ expert annotators labeling item $i$ with labels $\hat{y}_{i,1}, \ldots, \hat{y}_{i,m}$, the adjudicated label $y_i^*$ can be modeled as:
+
 $$
 y_i^* = \arg\max_k P(y = k \mid \hat{y}_{i,1}, \ldots, \hat{y}_{i,m}).
 $$
+
 This is exactly the same form as Dawid–Skene's soft label; the difference is that for gold the procedure typically forces a hard decision through human adjudication rather than EM.
 
 **Gold set as evaluation sample.** Let $y^*$ be gold labels, $\hat{y}$ be model predictions. Reported metric (e.g., accuracy):
+
 $$
 \hat{A} = \frac{1}{n_G} \sum_{i=1}^{n_G} \mathbb{1}[\hat{y}_i = y_i^*].
 $$
@@ -1362,9 +1440,11 @@ Standard error (for accuracy): $\text{SE} \approx \sqrt{\hat{A}(1-\hat{A})/n_G}$
 **Gold set bias on sub-metrics.** If gold set has $n_{G,k}$ items of class $k$, the per-class recall has SE $\approx \sqrt{R_k(1-R_k)/n_{G,k}}$. Rare classes in a small gold set produce very unstable per-class metrics.
 
 **Bounded evaluation.** If gold labels are themselves noisy with error rate $\eta$, the reported accuracy is bounded:
+
 $$
 A_{\text{reported}} \le 1 - \eta + \text{error correlations}
 $$
+
 (roughly). Quantitatively: for model accuracy $a$ and label error $\eta$ (independent), the observed match rate is $a(1-\eta) + (1-a)\eta/(K-1)$, which for binary is $a(1-\eta) + (1-a)\eta$. If $\eta = 0.05$, an actually-perfect model is measured at only $1 - \eta = 0.95$.
 
 ### 4. Worked Examples
@@ -1444,6 +1524,7 @@ Real use cases:
 **The confident joint.** Construct a matrix $C_{y_i^*, \tilde{y}_i}$ estimating the joint count of (true label, observed label). For each observed label class $k$, compute a class-specific confidence threshold $t_k$ = average predicted probability of class $k$ on examples that are observed to be class $k$. Then count an example $i$ as "confidently of class $j$" if $\hat{p}_{i,j} \ge t_j$.
 
 Define:
+
 $$
 C_{j, k} = \left| \left\{ i : \hat{p}_{i,j} \ge t_j, \; \tilde{y}_i = k, \; j = \arg\max_{l : \hat{p}_{i,l} \ge t_l} \hat{p}_{i,l} \right\} \right|.
 $$
@@ -1451,6 +1532,7 @@ $$
 This reads as: the number of examples whose observed label is $k$ but which the model confidently places in class $j$. Off-diagonal entries represent likely label errors.
 
 **Normalization.** Adjust each row so it sums to the observed per-class count:
+
 $$
 \tilde{C}_{j, k} = C_{j, k} \cdot \frac{|\{i : \tilde{y}_i = k\}|}{\sum_{j'} C_{j', k}}.
 $$
@@ -1480,6 +1562,7 @@ This corrects for the fact that confidence thresholds under-count or over-count 
 **Notation.** $n$ examples, $K$ classes, observed labels $\tilde{y}$, out-of-fold predictions $\hat{p}_{i,k}$.
 
 **Per-class threshold.**
+
 $$
 t_k = \frac{1}{|\{i : \tilde{y}_i = k\}|} \sum_{i : \tilde{y}_i = k} \hat{p}_{i, k}.
 $$
@@ -1492,6 +1575,7 @@ C_{j, k} = |\{ i : \hat{p}_{i, j} \ge t_j \text{ and } j = \arg\max_{l : \hat{p}
 $
 
 **Calibration step.** For each $k$, scale so that the row sums match the observed class counts:
+
 $$
 \hat{Q}_{j, k} = \frac{C_{j, k}}{\sum_{j'} C_{j', k}} \cdot \frac{|\{i : \tilde{y}_i = k\}|}{n}.
 $$
@@ -1499,15 +1583,19 @@ $$
 $\hat{Q}$ is an estimate of the joint distribution $P(y^*, \tilde{y})$.
 
 **Noise and inverse noise matrices.** The noise transition matrix $T_{j, k} = P(\tilde{y} = k \mid y^* = j)$ satisfies
+
 $$
 P(\tilde{y} = k) = \sum_j T_{j,k} P(y^* = j).
 $$
+
 Once $\hat{Q}$ is estimated, $\hat{T}$ follows from row-normalizing.
 
 **Loss correction.** Given $\hat{T}$, the noise-corrected loss for cross-entropy is:
+
 $$
 \mathcal{L}_{\text{corr}}(f(x), \tilde{y}) = -\log \left( \sum_{j} T_{j, \tilde{y}} f_j(x) \right),
 $$
+
 where $f_j(x)$ is the model's predicted probability of class $j$. Training with $\mathcal{L}_{\text{corr}}$ on the noisy data is (asymptotically) equivalent to training on clean data. This is the **forward correction** method (Patrini et al., 2017).
 
 ### 4. Worked Examples
@@ -1524,6 +1612,7 @@ Suppose:
 - Of 10 examples with $\tilde{y} = C$: 9 confidently C, 1 confidently A.
 
 Confident joint $C$ (rows = true-according-to-model, cols = observed):
+
 $$
 \begin{pmatrix}
 8 & 1 & 1 \\
@@ -1689,9 +1778,11 @@ A: In practice, you rarely can confirm MAR definitively — the MNAR scenario by
 **Q: Why is MSE decomposed as $b^2 + \sigma^2$ and not $b + \sigma^2$?**
 
 A: MSE is the expected *squared* error: $\mathbb{E}[(\hat{x} - x)^2]$. Writing $\hat{x} = x + b + \eta$ with $\eta$ zero-mean:
+
 $$
 \mathbb{E}[(\hat{x} - x)^2] = \mathbb{E}[(b + \eta)^2] = b^2 + 2b\mathbb{E}[\eta] + \mathbb{E}[\eta^2] = b^2 + 0 + \sigma^2.
 $$
+
 The bias enters squared because MSE penalizes direction equally — a bias of +2 and −2 contribute the same MSE. Adding bias linearly would be MAE-like and would allow positive and negative biases to cancel, which is not what the expected squared error captures.
 
 ---
@@ -1722,9 +1813,11 @@ A: A labeling function (LF) is a Python function that takes an example and retur
 **Q: Derive the majority-vote expected accuracy for $k$ independent annotators with individual accuracy $p$.**
 
 A: Majority vote is correct when more than half the annotators are correct. Under independence and equal accuracy $p$:
+
 $$
 P(\text{correct}) = \sum_{j=\lceil k/2 \rceil}^k \binom{k}{j} p^j (1-p)^{k-j}.
 $$
+
 For odd $k$ the result is monotonic in $k$ when $p > 0.5$ and decreasing when $p < 0.5$. Concretely for $p = 0.7$: $k=1$: 0.70; $k=3$: 0.784; $k=5$: 0.837; $k=7$: 0.874. Each redundancy doubling shrinks the error rate but with diminishing returns. The asymptotic result (Condorcet's jury theorem) is that as $k \to \infty$, the probability of correct majority vote tends to 1 if $p > 0.5$ and to 0 if $p < 0.5$.
 
 **Q: Sketch the Dawid–Skene EM algorithm.**
@@ -1732,10 +1825,13 @@ For odd $k$ the result is monotonic in $k$ when $p > 0.5$ and decreasing when $p
 A: Let $y_i$ be the latent true label, $\hat{y}_{i,a}$ observed label from annotator $a$, $\theta^{(a)}_{j,k} = P(\hat{y}_{i,a} = k \mid y_i = j)$, and $\pi_j = P(y_i = j)$.
 
 - **E-step**: compute posterior
+
 $$
 q_{i, j} = \frac{\pi_j \prod_a \theta^{(a)}_{j, \hat{y}_{i,a}}}{\sum_{j'} \pi_{j'} \prod_a \theta^{(a)}_{j', \hat{y}_{i,a}}}.
 $$
+
 - **M-step**:
+
 $$
 \pi_j = \frac{1}{n}\sum_i q_{i,j}, \quad \theta^{(a)}_{j,k} = \frac{\sum_i q_{i,j} \mathbb{1}[\hat{y}_{i,a}=k]}{\sum_i q_{i,j}}.
 $$
@@ -1745,9 +1841,11 @@ Iterate to convergence; initialize with majority vote. Output: soft labels $q_{i
 **Q: In Snorkel, why does conditional independence between labeling functions allow accuracy estimation without ground truth?**
 
 A: For binary LFs $\lambda_j, \lambda_k$ that are conditionally independent given the true label $Y$ (with $Y \in \{-1, +1\}$),
+
 $$
 \mathbb{E}[\lambda_j \lambda_k \mid |\lambda_j|, |\lambda_k| = 1] = \mathbb{E}[\lambda_j \mid Y] \cdot \mathbb{E}[\lambda_k \mid Y] \cdot \mathbb{E}[Y^2] = \mathbb{E}[\lambda_j Y] \mathbb{E}[\lambda_k Y].
 $$
+
 The LHS is observable from the label matrix. If we have three LFs $j, k, l$, we get three equations for three products of LF accuracies, from which each LF's accuracy is identifiable (up to a global sign, resolved by assuming LFs are better than random on average). This is Snorkel's "triplet method" and is what enables unsupervised accuracy estimation.
 
 ### B.3 Applied
@@ -1832,6 +1930,7 @@ A: Confident learning (Northcutt et al.) identifies likely label errors in a dat
 **Q: Derive Cohen's κ for the 2×2 case and demonstrate the kappa paradox numerically.**
 
 A: Confusion matrix:
+
 $$
 \begin{array}{c|cc|c}
  & B_1=Y & B_1=N & \text{Row} \\
@@ -1842,6 +1941,7 @@ A_1=N & c & d & c+d \\
 \text{Col} & a+c & b+d & n
 \end{array}
 $$
+
 $p_o = (a+d)/n$. Marginals: $p_{A,Y}=(a+b)/n$, $p_{A,N}=(c+d)/n$, $p_{B,Y}=(a+c)/n$, $p_{B,N}=(b+d)/n$. Chance agreement: $p_e = p_{A,Y} p_{B,Y} + p_{A,N} p_{B,N}$. κ = $(p_o - p_e)/(1 - p_e)$.
 
 Paradox example: $a=1, b=4, c=3, d=92$ (skewed to N). $p_o = 93/100 = 0.93$. Marginals: (0.05, 0.95) and (0.04, 0.96). $p_e = 0.002 + 0.912 = 0.914$. $\kappa = (0.93 - 0.914)/(1 - 0.914) = 0.019 / 0.086 \approx 0.19$.
@@ -1851,9 +1951,11 @@ High observed agreement, low κ. Both annotators are mostly saying "N" because "
 **Q: Why is weighted kappa used for ordinal labels? Derive its form.**
 
 A: For ordinal labels, the distance between labels is meaningful: disagreeing by 1 is not the same as disagreeing by 4. Standard κ treats all disagreements equally, which under-rates ordinal agreement. Weighted κ introduces a weight matrix $w_{jk}$ ($w_{jj} = 0$, larger for farther labels):
+
 $$
 \kappa_w = 1 - \frac{\sum_{jk} w_{jk} P_{jk}}{\sum_{jk} w_{jk} p_{A,j} p_{B,k}}.
 $$
+
 Linear weights $w_{jk} = |j-k|/(K-1)$ penalize proportionally; quadratic weights $w_{jk} = (j-k)^2/(K-1)^2$ penalize larger disagreements more heavily. Quadratic weighted kappa is the standard for ordinal tasks and matches the structure of MSE. Setting $w_{jk} = \mathbb{1}[j \ne k]$ recovers Cohen's κ.
 
 **Q: In confident learning, why is out-of-fold prediction required?**

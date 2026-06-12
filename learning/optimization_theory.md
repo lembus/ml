@@ -123,9 +123,11 @@ i.e., $f$ lies above a quadratic lower bound at every point. Equivalently, $\nab
 Two regularity assumptions dominate optimization theory:
 
 - **$L$-smoothness:** $\nabla f$ is Lipschitz continuous with constant $L$:
+
   $$
   \|\nabla f(x) - \nabla f(y)\| \le L\|x - y\|.
   $$
+
   Equivalently, when twice differentiable, $\|\nabla^2 f\| \le L$. This bounds curvature from above and is what tells us how big a step we can take without overshooting.
 
 - **$\mu$-strong convexity:** as above. Bounds curvature from below and guarantees the function has a unique minimum.
