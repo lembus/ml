@@ -6,121 +6,121 @@ book:
   author: "Mohsen"
   date: "2026-04-26"
   chapters:
-    - index.md
+    - README.md
     - part: "I. Mathematical & Statistical Foundations"
       chapters: 
         - text: "Probability & Distributions"
-          file: probability_distributions_guide.md
+          file: learning/probability_distributions_guide.md
         - text: "Estimation Theory"
-          file: estimation_theory_guide.md
+          file: learning/estimation_theory_guide.md
         - text: "Statistical Tests & Confidence Intervals"
-          file: statistical_tests_and_confidence_intervals.md
+          file: learning/statistical_tests_and_confidence_intervals.md
         - text: "Bias–Variance Tradeoff"
-          file: bias_variance_tradeoff_guide.md
+          file: learning/bias_variance_tradeoff_guide.md
         - text: "Learning Theory"
-          file: learning_theory_guide.md
+          file: learning/learning_theory_guide.md
         - text: "Causal Inference"
-          file: causal_inference_guide.md
+          file: learning/causal_inference_guide.md
     - part: "II. Core Machine Learning Paradigms"
       chapters:
         - text: "Linear Models"
-          file: linear_models_guide.md
+          file: learning/linear_models_guide.md
         - text: "Trees & Ensembles"
-          file: trees_and_ensembles_guide.md
+          file: learning/trees_and_ensembles_guide.md
         - text: "Support Vector Machines"
-          file: svm_guide.md
+          file: learning/svm_guide.md
         - text: "k-Nearest Neighbors"
-          file: knn_learning_guide.md
+          file: learning/knn_learning_guide.md
         - text: "Naive Bayes"
-          file: naive_bayes_reference.md
+          file: learning/naive_bayes_reference.md
         - text: "Clustering"
-          file: clustering_guide.md
+          file: learning/clustering_guide.md
         - text: "Dimensionality Reduction"
-          file: dim_reduction_guide.md
+          file: learning/dim_reduction_guide.md
         - text: "Anomaly Detection"
-          file: anomaly_detection_guide.md
+          file: learning/anomaly_detection_guide.md
         - text: "Association Rules"
-          file: association_rules_guide.md
+          file: learning/association_rules_guide.md
     - part: "III. Neural Networks & Representation Learning"
       chapters:
         - text: "NN Fundamentals"
-          file: nn_fundamentals_guide.md
+          file: learning/nn_fundamentals_guide.md
         - text: "Convolutional Neural Networks"
-          file: cnn_reference_guide.md
+          file: learning/cnn_reference_guide.md
         - text: "Recurrent Neural Networks"
-          file: rnn_guide.md
+          file: learning/rnn_guide.md
         - text: "Transformers"
-          file: transformers_guide.md
+          file: learning/transformers_guide.md
         - text: "Self-Supervised Learning"
-          file: ssl_guide.md
+          file: learning/ssl_guide.md
         - text: "Generative Models"
-          file: generative_models_guide.md
+          file: learning/generative_models_guide.md
         - text: "Graph Neural Networks"
-          file: gnn_reference_guide.md
+          file: learning/gnn_reference_guide.md
     - part: "IV. Optimization & Training Dynamics"
       chapters:
         - text: "Optimization Theory"
-          file: optimization_theory.md
+          file: learning/optimization_theory.md
         - text: "Loss Functions"
-          file: loss_functions_guide.md
+          file: learning/loss_functions_guide.md
         - text: "Regularization"
-          file: regularization_guide.md
+          file: learning/regularization_guide.md
         - text: "Hyperparameter Tuning"
-          file: hyperparameter_tuning_guide.md
+          file: learning/hyperparameter_tuning_guide.md
     - part: "V. Feature Engineering & Data-Centric ML"
       chapters:
         - text: "Preprocessing"
-          file: preprocessing_guide.md
+          file: learning/preprocessing_guide.md
         - text: "Feature Creation"
-          file: feature_creation_guide.md
+          file: learning/feature_creation_guide.md
         - text: "Feature Selection"
-          file: feature_selection_guide.md
+          file: learning/feature_selection_guide.md
         - text: "Feature Stores"
-          file: feature_stores_guide.md
+          file: learning/feature_stores_guide.md
         - text: "Data Quality & Labeling"
-          file: data_quality_labeling_guide.md
+          file: learning/data_quality_labeling_guide.md
     - part: "VI. Evaluation & Validation"
       chapters:
         - text: "Metrics"
-          file: ml_metrics_guide.md
+          file: learning/ml_metrics_guide.md
         - text: "Cross-Validation"
-          file: cross_validation_guide.md
+          file: learning/cross_validation_guide.md
         - text: "Statistical Comparison"
-          file: statistical_comparison_guide.md
+          file: learning/statistical_comparison_guide.md
         - text: "Robust Evaluation Under Shift"
-          file: robust_evaluation_under_shift.md
+          file: learning/robust_evaluation_under_shift.md
     - part: "VII. Production ML & MLOps"
       chapters:
         - text: "Deployment"
-          file: deployment_guide.md
+          file: learning/deployment_guide.md
         - text: "Monitoring"
-          file: monitoring_guide.md
+          file: learning/monitoring_guide.md
         - text: "Experimentation"
-          file: experimentation_guide.md
+          file: learning/experimentation_guide.md
         - text: "Versioning"
-          file: versioning_guide.md
+          file: learning/versioning_guide.md
         - text: "CI/CD for ML"
-          file: cicd_for_ml.md
+          file: learning/cicd_for_ml.md
         - text: "Scalability & Systems"
-          file: scalability_systems_guide.md
+          file: learning/scalability_systems_guide.md
     - part: "VIII. Domain-Specific Applications"
       chapters:
         - text: "NLP (Natural Language Processing)"
-          file: nlp_guide.md
+          file: learning/nlp_guide.md
         - text: "CV (Computer Vision)"
-          file: Computer_Vision_Comprehensive_Guide.md
+          file: learning/Computer_Vision_Comprehensive_Guide.md
         - text: "Time Series"
-          file: time_series_guide.md
+          file: learning/time_series_guide.md
         - text: "Recommender Systems"
-          file: recommender_systems.md
+          file: learning/recommender_systems.md
         - text: "RL (Reinforcement Learning)"
-          file: rl_guide.md
+          file: learning/rl_guide.md
         - text: "Fine-Tuning & Alignment"
-          file: llm_finetuning_guide.md
+          file: learning/llm_finetuning_guide.md
         - text: "Multimodal Methods"
-          file: multimodal_methods_guide.md
+          file: learning/multimodal_methods_guide.md
         - text: "Deploying GenAI Agents & Models"
-          file: deploying_genai_agents_and_models.md
+          file: learning/deploying_genai_agents_and_models.md
 
 format:
   html:

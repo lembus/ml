@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -rn \"\\\\$\\\\$\" /Users/mohsenabbasi/learning/ml/learning/)",
+      "Bash(grep -rn '\\\\$\\\\$' /Users/mohsenabbasi/learning/ml/learning/)",
+      "Bash(grep '\\\\$\\\\$')",
+      "Bash(grep -rln '\\\\$\\\\$' /Users/mohsenabbasi/learning/ml/learning/)",
+      "Bash(grep -n '\\\\$\\\\$' /Users/mohsenabbasi/learning/ml/learning/feature_selection_guide.md)",
+      "Bash(grep -rn '^\\\\$\\\\$$' /Users/mohsenabbasi/learning/ml/learning/)",
+      "Bash(grep -rn '^\\\\$\\\\$.\\\\+\\\\$\\\\$$' /Users/mohsenabbasi/learning/ml/learning/)",
+      "Bash(python3)"
+    ]
+  }
+}
