@@ -8,73 +8,73 @@ This book is a comprehensive curriculum covering the foundations and modern prac
 
 ### Part I. Mathematical & Statistical Foundations
 
-- [Probability & Distributions](learning/probability_distributions_guide.md)
-- [Estimation Theory](learning/estimation_theory_guide.md)
-- [Statistical Tests & Confidence Intervals](learning/statistical_tests_and_confidence_intervals.md)
-- [Bias–Variance Tradeoff](learning/bias_variance_tradeoff_guide.md)
-- [Learning Theory](learning/learning_theory_guide.md)
-- [Causal Inference](learning/causal_inference_guide.md)
+- [Probability & Distributions](learning_g/Probability_and_Distributions_Comprehensive_Guide.md)
+- [Estimation Theory](learning_g/Estimation%20Theory:%20A%20Foundational%20Guide.md)
+- [Statistical Tests & Confidence Intervals](learning_g/statistical_tests_and_confidence_intervals.md)
+- [Bias–Variance Tradeoff](learning_g/The%20Bias%E2%80%93Variance%20Tradeoff.md)
+- [Learning Theory](learning_g/learning_theory_guide.md)
+- [Causal Inference](learning_g/causal_inference.md)
 
 ### Part II. Core Machine Learning Paradigms
 
-- [Linear Models](learning/linear_models_guide.md)
-- [Trees & Ensembles](learning/trees_and_ensembles_guide.md)
-- [Support Vector Machines](learning/svm_guide.md)
-- [k-Nearest Neighbors](learning/knn_learning_guide.md)
-- [Naive Bayes](learning/naive_bayes_reference.md)
-- [Clustering](learning/clustering_guide.md)
-- [Dimensionality Reduction](learning/dim_reduction_guide.md)
-- [Anomaly Detection](learning/anomaly_detection_guide.md)
-- [Association Rules](learning/association_rules_guide.md)
+- [Linear Models](learning_g/Linear_Models_Reference_Guide.md)
+- [Trees & Ensembles](learning_g/trees_and_ensembles_guide.md)
+- [Support Vector Machines](learning_g/support_vector_machines.md)
+- [k-Nearest Neighbors](learning_g/k-nearest-neighbours.md)
+- [Naive Bayes](learning_g/naive_bayes_guide.md)
+- [Clustering](learning_g/clustering.md)
+- [Dimensionality Reduction](learning_g/dimensionality_reduction.md)
+- [Anomaly Detection](learning_g/anomaly_detection.md)
+- [Association Rules](learning_g/Association_Rules.md)
 
 ### Part III. Neural Networks & Representation Learning
 
-- [NN Fundamentals](learning/nn_fundamentals_guide.md)
-- [Convolutional Neural Networks](learning/cnn_reference_guide.md)
-- [Recurrent Neural Networks](learning/rnn_guide.md)
-- [Transformers](learning/transformers_guide.md)
-- [Self-Supervised Learning](learning/ssl_guide.md)
-- [Generative Models](learning/generative_models_guide.md)
-- [Graph Neural Networks](learning/gnn_reference_guide.md)
+- [NN Fundamentals](learning_g/Neural_Network_Fundamentals.md)
+- [Convolutional Neural Networks](learning_g/convolutional_neural_networks.md)
+- [Recurrent Neural Networks](learning_g/Recurrent_Neural_Networks.md)
+- [Transformers](learning_g/transformers.md)
+- [Self-Supervised Learning](learning_g/Self-Supervised-Learning.md)
+- [Generative Models](learning_g/generative_models.md)
+- [Graph Neural Networks](learning_g/graph-neural-networks.md)
 
 ### Part IV. Optimization & Training Dynamics
 
-- [Optimization Theory](learning/optimization_theory.md)
-- [Loss Functions](learning/loss_functions_guide.md)
-- [Regularization](learning/regularization_guide.md)
-- [Hyperparameter Tuning](learning/hyperparameter_tuning_guide.md)
+- [Optimization Theory](learning_g/optimization-theory.md)
+- [Loss Functions](learning_g/loss-functions.md)
+- [Regularization](learning_g/regularization.md)
+- [Hyperparameter Tuning](learning_g/hyperparameter-tuning.md)
 
 ### Part V. Feature Engineering & Data-Centric ML
 
-- [Preprocessing](learning/preprocessing_guide.md)
-- [Feature Creation](learning/feature_creation_guide.md)
-- [Feature Selection](learning/feature_selection_guide.md)
-- [Feature Stores](learning/feature_stores_guide.md)
-- [Data Quality & Labeling](learning/data_quality_labeling_guide.md)
+- [Preprocessing](learning_g/preprocessing.md)
+- [Feature Creation](learning_g/feature-creation.md)
+- [Feature Selection](learning_g/feature_selection.md)
+- [Feature Stores](learning_g/feature_stores.md)
+- [Data Quality & Labeling](learning_g/data_quality_labeling.md)
 
 ### Part VI. Evaluation & Validation
 
-- [Metrics](learning/ml_metrics_guide.md)
-- [Cross-Validation](learning/cross_validation_guide.md)
-- [Statistical Comparison](learning/statistical_comparison_guide.md)
-- [Robust Evaluation Under Shift](learning/robust_evaluation_under_shift.md)
+- [Metrics](learning_g/evaluation_metrics.md)
+- [Cross-Validation](learning_g/cross_validation.md)
+- [Statistical Comparison](learning_g/statistical_comparison.md)
+- [Robust Evaluation Under Shift](learning_g/evaluation_under_shift.md)
 
 ### Part VII. Production ML & MLOps
 
-- [Deployment](learning/deployment_guide.md)
-- [Monitoring](learning/monitoring_guide.md)
-- [Experimentation](learning/experimentation_guide.md)
-- [Versioning](learning/versioning_guide.md)
-- [CI/CD for ML](learning/cicd_for_ml.md)
-- [Scalability & Systems](learning/scalability_systems_guide.md)
+- [Deployment](learning_g/ML_Deployment.md)
+- [Monitoring](learning_g/ML_Monitoring.md)
+- [Experimentation](learning_g/ML_Experimentation.md)
+- [Versioning](learning_g/training-heuristics.md)
+- [CI/CD for ML](learning_g/ML_CICD.md)
+- [Scalability & Systems](learning_g/ML_Scalability.md)
 
 ### Part VIII. Domain-Specific Applications
 
-- [NLP (Natural Language Processing)](learning/nlp_guide.md)
-- [CV (Computer Vision)](learning/Computer_Vision_Comprehensive_Guide.md)
-- [Time Series](learning/time_series_guide.md)
-- [Recommender Systems](learning/recommender_systems.md)
-- [RL (Reinforcement Learning)](learning/rl_guide.md)
-- [Fine-Tuning & Alignment](learning/llm_finetuning_guide.md)
-- [Multimodal Methods](learning/multimodal_methods_guide.md)
-- [Deploying GenAI Agents & Models](learning/deploying_genai_agents_and_models.md)
+- [NLP (Natural Language Processing)](learning_g/nlp.md)
+- [CV (Computer Vision)](learning_g/computer_vision.md)
+- [Time Series](learning_g/time_series_learning_guide.md)
+- [Recommender Systems](learning_g/recommender_systems_guide.md)
+- [RL (Reinforcement Learning)](learning_g/reinforcement_learning.md)
+- [Fine-Tuning & Alignment](learning_g/fine_tuning.md)
+- [Multimodal Methods](learning_g/multi_modal.md)
+- [Deploying GenAI Agents & Models](learning_g/Deploying_GenAI_Agents_Models_Guide.md)

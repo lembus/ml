@@ -1,0 +1,6 @@
+create a markdown file containing all the learning material contained in this chat.
+include only the learning material and exclude any instructions, intended audience, or meta information.
+make sure all sections and equations (if there are any) are properly formatted.
+the markdown is going to be shown on github. make sure it follows the proper formatting.
+
+all your output should be included in a markdown file. do not put any parts of the learning material in the current chat.
