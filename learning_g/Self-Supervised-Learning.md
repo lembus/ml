@@ -226,3 +226,141 @@ Because the positive similarity ($0.78$) is significantly higher than the negati
   1. **Batch Normalization Synchronization:** Verify the placement of Batch Normalization layers within the predictor MLP. BYOL relies critically on BN across intermediate linear projections to maintain representation variance. Ensure layer statistics are properly synchronized across distributed GPU processes.
   2. **Momentum Annealing Schedule:** Inspect the momentum parameter $m$. If initialized too low (e.g., $m=0.90$), the target network parameters evolve too rapidly, preventing the online predictor branch from tracking the shifting target space. Ensure $m$ follows a cosine annealing schedule starting at $\ge 0.996$ and terminating at $1.0$.
   3. **Learning Rate Scaling:** Check for gradient explosion within the un-normalized predictor head; apply strict gradient clipping ($\le 1.0$) or reduce the base learning rate of the online optimizer.
+
+---
+
+## 9. Modern SSL Paradigms: Self-Distillation and Latent Prediction
+
+### A. Self-Distillation (DINO / DINOv2)
+
+#### Motivation
+Both contrastive methods (SimCLR) and non-contrastive methods (BYOL) require specific architectural choices to prevent representational collapse — large batches and hard negatives for SimCLR, or architectural asymmetry and stop-gradients for BYOL. **DINO** introduces a cleaner collapse-prevention mechanism based on knowledge distillation between a student and a teacher — where the teacher is the student's own historical self, outputs are normalized via a centering operation, and no negative pairs are ever needed.
+
+DINOv2 extends DINO to produce features with remarkable emergent properties (explicit depth estimation and semantic segmentation emerge without supervision), enabled by curated training data and a combined self-distillation + masked prediction objective.
+
+#### Conceptual Foundations
+
+**Two-Crop Strategy:**
+* A high-resolution "global" crop ($224 \times 224$) captures the full scene.
+* Multiple low-resolution "local" crops ($96 \times 96$) capture specific object parts.
+* The **student network** $g_{\theta_s}$ processes both global and local crops.
+* The **teacher network** $g_{\theta_t}$ (an EMA of the student, $\theta_t \leftarrow m \theta_t + (1-m) \theta_s$) processes only the global crops.
+* The student is trained to match the teacher's output distribution — local crops must predict what the teacher sees globally, forcing multi-scale semantic consistency.
+
+**Centering:**
+The teacher's output logits are centered by subtracting a running mean vector $c$, updated as an EMA of past teacher batch outputs. Without centering, the teacher collapses to outputting maximum probability on a single prototype for all inputs (a trivially minimal cross-entropy solution). Centering forces the output distribution to spread across all prototype dimensions.
+
+**DINOv2 Extensions Over DINO:**
+* Adds a SwAV-style online clustering regularization term that distributes representations uniformly across prototype codes.
+* Adds a masked image modeling term (iBOT) providing patch-level supervision alongside the global self-distillation objective.
+* Uses a curated training dataset (LVD-142M) with deduplication and quality filtering, rather than raw internet scrapes.
+* Scales to ViT-g (1.1B parameters) — DINOv2 features linearly predict depth maps, semantic segmentation, and object part correspondences without any task-specific fine-tuning, properties absent from CLIP and supervised ImageNet models.
+
+#### Mathematical Formulation
+
+Let the student and teacher outputs be projected through separate softmax functions over $K$ prototype dimensions with temperatures $\tau_s > \tau_t$ (teacher is sharpened for peakier targets):
+
+$$P_s^{(i)}(x) = \frac{\exp(g_{\theta_s}(x)^{(i)} / \tau_s)}{\sum_k \exp(g_{\theta_s}(x)^{(k)} / \tau_s)}$$
+
+$$P_t^{(i)}(x) = \frac{\exp\left((g_{\theta_t}(x)^{(i)} - c^{(i)}) / \tau_t\right)}{\sum_k \exp\left((g_{\theta_t}(x)^{(k)} - c^{(k)}) / \tau_t\right)}$$
+
+where the centering vector $c$ is updated each step: $c \leftarrow m_c \cdot c + (1 - m_c) \cdot \text{BatchMean}(g_{\theta_t}(x))$.
+
+For an image with one global view $x_g$ and local views $\{x_l^{(j)}\}$, the total loss minimizes student-teacher cross-entropy:
+
+$$\mathcal{L}_{\text{DINO}} = -\sum_j H\!\left(P_t(x_g),\, P_s(x_l^{(j)})\right) - H\!\left(P_t(x_g),\, P_s(x_g)\right)$$
+
+where $H(a, b) = -\sum_k a^{(k)} \log b^{(k)}$ is cross-entropy. The sharpened teacher distribution provides a crisp learning signal; the centered teacher prevents degenerate solutions; the asymmetric crop setup (student sees local, teacher sees global) enforces coarse-to-fine semantic consistency.
+
+---
+
+### B. Joint-Embedding Predictive Architectures (I-JEPA)
+
+#### Motivation
+Masked autoencoders (MAE) predict raw pixel values for masked patches. This objective is dominated by low-level solutions: a model can achieve near-zero pixel MSE by exploiting local texture periodicity or blurring from adjacent patches — without learning high-level semantic content. The reconstruction target is fundamentally too low-level.
+
+**I-JEPA (Image Joint-Embedding Predictive Architecture)** implements a key insight: **predict in representation space, not in pixel space**. Instead of predicting exact pixel intensities, the model predicts the abstract representation of masked regions as produced by a teacher encoder. Because the teacher has already compressed patches into semantic abstractions (discarding exact pixel values), the predictor is forced to infer semantic content rather than texture statistics.
+
+#### Conceptual Foundations
+
+**Four Components:**
+
+1. **Context Encoder** $f_\theta$: Processes the visible (unmasked) patches. Produces context representations.
+2. **Predictor** $g_\phi$: A lightweight Transformer that takes context representations + positional queries for target block locations. Outputs predicted representations for each target block.
+3. **Target Encoder** $h_\xi$: An EMA copy of the context encoder ($\xi \leftarrow m\xi + (1-m)\theta$). Receives the full image (all patches) and produces target representations. No gradient flows through this branch.
+4. **Masking Strategy:** Rather than masking random individual patches, I-JEPA masks contiguous spatial blocks (e.g., 4 rectangular blocks averaging $25\%$ coverage each), making the prediction task semantically harder — the model must infer an entire object region, not just fill in a texture gap.
+
+**Why This Works Without Collapse:**
+The stop-gradient on the target encoder and the EMA update rule (identical to BYOL's target network) prevent the trivial solution where both encoder and predictor output constants — the predictor must continuously track a slowly evolving target rather than a fixed equilibrium.
+
+#### Mathematical Formulation
+
+Let $\mathcal{C}$ be the set of unmasked context patch indices and $\{B_1, \ldots, B_K\}$ be the $K$ target block regions. The context encoder produces:
+
+$$Z_\mathcal{C} = f_\theta\!\left(x_\mathcal{C}\right)$$
+
+For each target block $B_k$, the predictor generates a predicted representation using context embeddings and positional queries for the target positions:
+
+$$\hat{z}_{B_k} = g_\phi\!\left(Z_\mathcal{C},\; \text{pos}(B_k)\right)$$
+
+The target encoder provides ground-truth representations:
+
+$$z_{B_k} = h_\xi\!\left(x_{B_k}\right)$$
+
+Training objective (L2 loss in representation space, averaged over all target blocks):
+
+$$\mathcal{L}_{\text{I-JEPA}} = \frac{1}{K} \sum_{k=1}^{K} \left\lVert \hat{z}_{B_k} - \text{sg}(z_{B_k}) \right\rVert_2^2$$
+
+where $\text{sg}(\cdot)$ denotes the stop-gradient operator.
+
+#### Comparison: MAE vs. I-JEPA
+
+| Dimension | MAE | I-JEPA |
+| :--- | :--- | :--- |
+| **Prediction Target** | Raw pixel values | Abstract representations |
+| **Mask Strategy** | Random individual patches | Contiguous spatial blocks |
+| **Training Efficiency** | Requires many epochs ($\sim$1600) | Converges faster ($\sim$600 epochs) |
+| **Linear Probe Accuracy** | Moderate (reconstructing pixels ≠ learning semantics) | Higher (semantic representations emerge naturally) |
+| **Decoder Required** | Yes (pixel decoder) | No (predictor is lightweight) |
+
+---
+
+### C. Multi-Modal SSL: Where CLIP Fits
+
+CLIP demonstrates that SSL can operate across modalities using **naturally co-occurring paired data** (images + alt-text), bypassing the need to construct synthetic pretext tasks entirely.
+
+**Natural Supervision at Scale:** Rather than designing a pretext task, CLIP mines 400M naturally aligned image-text pairs from the internet. The implicit pretext task is: correctly match each image to its caption within a large batch. This is structurally supervised (labels exist — the pairings), but labels are freely available from web scraping, requiring no human annotation.
+
+**Formal Connection to Contrastive SSL:**
+CLIP's InfoNCE objective is mathematically identical to SimCLR's NT-Xent loss:
+* SimCLR defines positive pairs as two augmented views of the **same image**.
+* CLIP defines positive pairs as an image and its **natural language description**.
+
+The substitution of the augmented-view positive pair with a cross-modal positive pair allows the shared embedding space to align visual and linguistic semantic concepts. The model learns that `[image of a dog]` and `"a golden retriever playing fetch"` should be geometrically proximate, without ever receiving an explicit "dog" class label.
+
+**Data2Vec (Universal SSL):** Meta's Data2Vec applies a single unified SSL objective across modalities using a single architecture:
+1. A **teacher** (EMA of student) processes the full unmasked input and outputs top-$K$ layer representations.
+2. A **student** processes the masked input and predicts the teacher's averaged representations at masked positions.
+The only modality-specific components are the input tokenizer (patch extractor for images, subword tokenizer for text, waveform CNN for audio) and the masking strategy. The prediction target and loss are identical across all modalities — demonstrating that semantic representation learning has a common computational structure regardless of input type.
+
+---
+
+## 10. Extended Interview Questions
+
+### DINO / DINOv2
+
+**Q9: Explain why centering is critical in DINO but not necessary in BYOL.**
+**Answer:** In DINO, the teacher outputs a softmax probability distribution over $K$ discrete prototype slots. Without centering, the trivially optimal cross-entropy solution is to collapse all probability mass onto a single prototype for every input (constant distribution across the dataset). The loss reaches zero — not because the representations are meaningful, but because both student and teacher have learned to output the same degenerate constant. Centering subtracts the running batch mean from teacher logits, ensuring the output distribution cannot concentrate entirely on one slot and forcing the network to use all prototype dimensions. BYOL avoids representational collapse via a different mechanism: the predictor MLP on the student branch must project to match the teacher's output, but since the teacher (a lagged EMA) is always slightly ahead of the student, the student must continuously change its representations. There is no fixed equilibrium to collapse to. This structural asymmetry (predictor vs. stop-gradient) replaces the role that centering plays in DINO.
+
+**Q10: DINOv2 features encode geometric properties (depth, segmentation) that supervised ImageNet features do not. What aspect of the SSL objective enables this geometric structure to emerge?**
+**Answer:** Supervised ImageNet training optimizes for 1,000 discrete object category classifications. Gradient pressure systematically prunes any feature dimensions that do not contribute to category separation — including scene geometry, spatial layout, and structural continuity, which are not discriminative between ImageNet categories (all cat images need similar features regardless of depth or pose). DINOv2's combined objective (self-distillation + masked patch prediction) does not specify which visual properties are valuable. The masked prediction term forces the encoder to preserve information about spatial structure and object boundaries in order to predict the representations of masked image regions — because the representation of a masked patch depends heavily on its geometric relationship to visible patches. Geometric features emerge as a necessary byproduct of the spatial prediction requirement, not because they were explicitly supervised.
+
+### I-JEPA
+
+**Q11: I-JEPA predicts in representation space rather than pixel space. Explain concretely why predicting pixels is a fundamentally easier but less useful task.**
+**Answer:** Predicting raw pixel values for masked patches can be accomplished through multiple degenerate low-level strategies without learning semantic content: (1) predicting the global image mean color achieves moderate pixel MSE with zero semantic understanding; (2) blurring from immediately adjacent unmasked pixels (bilinear interpolation) reconstructs smooth textures with low MSE in homogeneous regions; (3) exploiting texture periodicity (grass, fabric, sky) produces accurate pixel predictions through memorized pattern repetition. All three strategies work purely at the level of local statistics and never require understanding what object is depicted or why specific pixels have specific values. In representation space, the target encoder has already executed semantic compression — discarding exact pixel intensities and retaining high-level features (object categories, part identities, scene attributes). The predictor cannot interpolate from adjacent textures in this space; it must infer the abstract semantic content of the masked region. This forces the model to learn genuine visual concepts rather than texture statistics.
+
+### Multi-Modal SSL
+
+**Q12: CLIP uses naturally co-occurring image-text pairs rather than a synthetic pretext task. What are the failure modes introduced by relying on web-scraped alt-text for supervision?**
+**Answer:** Web alt-text introduces three systematic biases: (1) **Descriptive sparsity** — many alt-text strings are non-descriptive metadata (`"IMG_4821.jpg"`, `"Click here"`) rather than semantic image descriptions. The model learns to align visual features with noise, degrading precision in the semantic embedding space. (2) **Demographic and cultural bias** — alt-text reflects the cultural and linguistic biases of its authors. If a concept (e.g., "wedding") is predominantly described in the context of specific cultural practices in the training data, the image embedding for all wedding images will cluster in a culturally biased region of the semantic space, producing discriminatory zero-shot classifications. (3) **Spatial relationship blindness** — alt-text almost never describes the relative spatial arrangement of objects ("the dog is to the left of the cat"). CLIP therefore learns strong object recognition but systematically fails at spatial reasoning tasks (compositional VQA, grounding). These failure modes are inherited by any downstream system built on CLIP features.

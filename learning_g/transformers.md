@@ -539,3 +539,92 @@ This is the classic **FP16 Activation Dynamic Range Overflow** failure mode:
 > **Probing Follow-up:** *If training hardware strictly restricts you to FP16 (e.g., legacy V100 GPUs), what algorithmic change can you make to the attention logit calculation to prevent Inf overflow inside Softmax?*
 >
 > **Answer:** Implement **Safe-Softmax (Logit Subtraction)**. Prior to exponentiation, subtract the maximum logit across the row from all elements: $z_i' = z_i - \max(z)$. This shifts the maximum logit strictly to $0$ ($e^0 = 1.0$), ensuring all inputs to the exponential function are negative ($\le 0$), completely preventing numerical overflow during exponentiation.
+
+---
+
+## Scaling Beyond the Vanilla Transformer
+
+The base architecture is fixed; the frontier is about making it **bigger without making it proportionally more expensive** to train and serve. Four ideas dominate modern LLMs: sparse experts, efficient KV memory, faster decoding, and principled scaling.
+
+### A. Mixture of Experts (MoE)
+
+A dense Transformer activates **all** parameters for **every** token. MoE decouples *total* parameters (capacity) from *activated* parameters (compute) by replacing the FFN with $N$ parallel expert FFNs and a **router** that sends each token to only the top-$k$ (usually $k=2$):
+$$
+y = \sum_{i \in \text{TopK}(g(x))} g(x)_i \, E_i(x), \qquad g(x) = \text{softmax}(W_r x)
+$$
+A model can hold, say, 8×7B "experts" (47B total params) but activate only ~13B per token — roughly dense-13B inference cost with the knowledge capacity of a much larger model (Mixtral). Training MoEs is dominated by two problems:
+
+* **Load balancing:** left alone, the router collapses onto a few favorite experts (rich-get-richer). An **auxiliary load-balancing loss** penalizes imbalance, pushing token assignment toward uniform across experts:
+$$
+\mathcal{L}_{\text{aux}} = \alpha \cdot N \sum_{i=1}^{N} f_i \cdot P_i
+$$
+where $f_i$ is the fraction of tokens routed to expert $i$ and $P_i$ is the mean router probability for expert $i$. Minimized when both are uniform ($1/N$).
+* **Capacity & dropping:** each expert has a fixed buffer ("capacity factor"); overflow tokens are dropped (skip the FFN via the residual). Too low → information loss; too high → wasted compute and memory.
+
+**Trade-off:** MoE wins on quality-per-FLOP but costs **memory** (all experts must be resident in VRAM even though most are idle) and adds routing/communication complexity (experts are sharded across GPUs → all-to-all traffic).
+
+### B. The KV-Cache
+
+During autoregressive generation, naively recomputing attention over the whole prefix at each step is $O(n^2)$ wasted work, because past keys/values don't change. The **KV-cache** stores the $K$ and $V$ tensors of every past token; generating a new token only computes **one** new query and attends over the cache — turning per-step cost from quadratic to linear.
+
+The catch is **memory**. Cache size grows linearly with everything:
+$$
+\text{KV bytes} = 2 \times n_{\text{layers}} \times n_{\text{heads}} \times d_{\text{head}} \times \text{seq\_len} \times \text{batch} \times \text{bytes/elt}
+$$
+For long contexts and large batches this **dwarfs the model weights** and becomes the true bottleneck on throughput — it's why serving systems obsess over it (vLLM's PagedAttention manages the cache like OS virtual memory to cut fragmentation).
+
+### C. Multi-Query & Grouped-Query Attention (MQA / GQA)
+
+The KV-cache scales with the number of **KV heads**, so the cheapest way to shrink it is to use fewer of them:
+* **MHA (standard):** $H$ query heads, $H$ key/value heads.
+* **MQA:** $H$ query heads share a **single** K/V head → cache shrinks by $H\times$. Big memory/bandwidth win, but a noticeable quality dip and training instability.
+* **GQA (the modern default):** $H$ query heads split into $G$ groups, each group sharing one K/V head ($1 < G < H$). Interpolates between MHA ($G=H$) and MQA ($G=1$), recovering nearly all MHA quality while shrinking the cache ~$H/G\times$. Used by Llama-2/3, Mistral.
+
+### D. Speculative Decoding
+
+Autoregressive decoding is **memory-bandwidth bound**: each token requires streaming all model weights from VRAM, and you can only produce one token per pass. Speculative decoding breaks the one-token-per-pass limit *without changing the output distribution*:
+1. A small, cheap **draft** model autoregressively proposes $\gamma$ tokens.
+2. The large **target** model verifies all $\gamma$ in a **single parallel forward pass**.
+3. A **rejection-sampling** acceptance rule accepts the longest correct prefix and resamples at the first mismatch.
+
+Because verification is parallel and the draft is cheap, you often get 2–3× wall-clock speedup. The math guarantees the accepted tokens are distributed *exactly* as if sampled from the target model — it's a pure latency optimization, not an approximation. (Variants: Medusa adds extra heads to the target itself; n-gram/lookahead drafting avoids a separate model.)
+
+### E. Scaling Laws & Compute-Optimal Training (Chinchilla)
+
+Loss falls **predictably** as a power law in model size $N$, data $D$, and compute $C$:
+$$
+L(N, D) = E + \frac{A}{N^{\alpha}} + \frac{B}{D^{\beta}}
+$$
+Given a **fixed compute budget** $C \approx 6ND$, how should you split it between a bigger model and more data? The **Chinchilla** finding: most large models (GPT-3, Gopher) were badly **under-trained** — too many parameters, too few tokens. Compute-optimal scaling grows $N$ and $D$ **in roughly equal proportion** (~20 tokens per parameter), so a 70B model trained on 1.4T tokens beat a 280B model trained on far less, at equal compute.
+
+* **Inference caveat:** Chinchilla optimizes *training* compute. For models served to millions, it's often worth **over-training a smaller model** past compute-optimal (e.g., Llama on trillions of tokens) because a smaller model is permanently cheaper at inference — you amortize extra training cost across billions of forward passes.
+
+### F. Long-Context Extension (RoPE Scaling, YaRN)
+
+A model trained with RoPE at context 4K fails catastrophically at 32K — it's extrapolating to rotation frequencies it never saw. Rather than retrain from scratch, **modify the RoPE frequencies** and briefly fine-tune:
+* **Position Interpolation (PI):** linearly **downscale** position indices so 32K maps into the trained 4K range. Simple, but compresses high-frequency (local) information, slightly hurting short-range precision.
+* **NTK-aware / YaRN:** scale frequencies **non-uniformly** — interpolate low-frequency (long-range) dimensions while leaving high-frequency (local) dimensions nearly untouched, preserving local resolution. **YaRN** extends context 8–16× with minimal fine-tuning and is the production standard for long-context Llama/Mistral variants.
+
+---
+
+## Additional Interview Questions
+
+**Q: A "47B-parameter" MoE model serves at roughly the speed of a 13B dense model. Explain how, and what you give up.**
+
+MoE activates only the top-$k$ experts per token (e.g., 2 of 8), so *compute* tracks the ~13B activated parameters even though *total* capacity is 47B. You give up **memory**: all experts must sit in VRAM regardless of how rarely they fire, and expert sharding across GPUs adds all-to-all communication. You also inherit training headaches — without a **load-balancing auxiliary loss**, routing collapses onto a few experts, and fixed expert capacity means overflow tokens get dropped.
+
+**Q: Why is the KV-cache, not the model weights, often the memory bottleneck during long-context serving — and how do MQA/GQA address it?**
+
+KV-cache size grows linearly in sequence length × batch × layers × **KV heads**, so at long context and high batch it exceeds the (fixed) weight memory. MQA collapses all query heads onto a single K/V head (cache ÷ $H$) but loses quality; **GQA** shares one K/V head per *group* of query heads, shrinking the cache ~$H/G\times$ while retaining almost all MHA quality — the standard compromise in modern LLMs.
+
+**Q: Speculative decoding uses a weaker draft model. Why doesn't this degrade output quality?**
+
+The draft only **proposes**; the target model **verifies** all proposed tokens in one parallel pass, and a rejection-sampling rule accepts the longest prefix consistent with the target's own distribution, resampling at the first disagreement. The accepted sequence is provably distributed identically to standard sampling from the target model — the draft only affects *how many* tokens are accepted per pass (speed), never *which* distribution they come from.
+
+**Q: You have a fixed training compute budget. Per Chinchilla, how do you allocate it, and when would you deliberately violate that rule?**
+
+Split compute so model size and data grow together (~20 tokens/param) — most early large models were over-parameterized and under-trained, so a smaller-but-longer-trained model wins at equal compute. You deliberately **over-train a smaller model** past the compute-optimal point when it will serve heavy inference traffic: a smaller model is permanently cheaper per query, so the extra training FLOPs are repaid across billions of inferences.
+
+**Q: How do you take a model trained at 4K context to 32K without full retraining, and what's the failure mode of the naive approach?**
+
+Rescale the RoPE positional frequencies and lightly fine-tune. Naive linear **Position Interpolation** works but compresses high-frequency dimensions, hurting local/short-range precision. **NTK-aware / YaRN** scale frequencies non-uniformly — interpolating long-range dimensions while preserving high-frequency local ones — extending context 8–16× with minimal fine-tuning and little short-context regression.

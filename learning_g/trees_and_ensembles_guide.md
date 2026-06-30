@@ -426,3 +426,101 @@ The explicit inclusion of $L_2$ regularization ($\lambda$) in the denominator ac
 **Answer:**
 * **Gradient Boosting Machines:** Yes, this is classic **over-boosting**. Because GBMs optimize sequentially to eliminate residual errors, running excessive boosting rounds forces late-stage trees to model pure sample noise. The ensemble begins memorizing the training set, degrading validation performance. Mitigation requires **Early Stopping** monitored via a validation holdout set.
 * **Random Forests:** No, standard Random Forests do not overfit as ensemble size $B$ increases. Adding more trees strictly expands the averaging sample size, driving the empirical variance term $\frac{1-\rho}{B}\sigma^2 \to 0$. Validation performance plateaus asymptotically rather than degrading. Adding excessive trees in a Random Forest hurts computational inference latency, but not statistical generalization.
+
+---
+---
+
+## Part V: AdaBoost — The Original Boosting Algorithm
+
+Before gradient boosting generalized the framework, **AdaBoost (Adaptive Boosting)** introduced the core boosting idea: sequentially focus learners on the mistakes of their predecessors. Whereas GBM fits the **gradient of a loss**, AdaBoost **reweights data points** — but the two are deeply connected: AdaBoost is provably equivalent to forward stagewise additive modeling under the **exponential loss** $L(y, F) = e^{-yF(x)}$ with $y \in \{-1, +1\}$.
+
+### Algorithm
+1. Initialize uniform sample weights $w_i = 1/N$.
+2. For $m = 1 \dots M$:
+   * Train a weak learner $h_m$ (classically a **decision stump** — a depth-1 tree) on the weighted data.
+   * Compute its weighted error: $\;\epsilon_m = \frac{\sum_i w_i \,\mathbb{I}(y_i \neq h_m(x_i))}{\sum_i w_i}$.
+   * Compute learner weight: $\;\alpha_m = \frac{1}{2}\ln\!\left(\frac{1 - \epsilon_m}{\epsilon_m}\right)$.
+   * Update sample weights — **increase** weight on misclassified points, **decrease** on correct ones:
+     $$w_i \leftarrow w_i \cdot \exp\!\big(-\alpha_m \, y_i \, h_m(x_i)\big), \quad \text{then renormalize}$$
+3. Final prediction: $\;F(x) = \text{sign}\!\left(\sum_m \alpha_m h_m(x)\right)$.
+
+* **Intuition of $\alpha_m$:** a learner with error near 0 gets a large positive vote; error near 0.5 (random) gets ~zero vote; error above 0.5 gets a *negative* vote (its predictions are flipped).
+* **Key weakness vs. GBM:** the exponential loss puts **exponentially growing weight on misclassified points**, making AdaBoost highly sensitive to label noise and outliers. Gradient boosting with a robust loss (e.g., Huber, log-loss) is the modern default precisely because it tolerates noise better.
+
+---
+
+## Part VI: Isolation Forests — Trees for Anomaly Detection
+
+Not all tree ensembles predict labels — **Isolation Forest** is an *unsupervised* anomaly detector built from trees, exploiting a clever inversion of the usual logic.
+
+**Core insight:** anomalies are **few and different**, so they are **easy to isolate**. If you build a tree by repeatedly choosing a random feature and a random split value, an outlier gets partitioned off into its own leaf after very **few** splits, while normal points (dense, similar to neighbors) require many splits to isolate.
+
+* **Anomaly score** is based on the average **path length** $h(x)$ from root to the leaf isolating $x$, normalized by $c(n)$, the expected path length in a binary search tree of $n$ points:
+$$
+s(x, n) = 2^{-\frac{\mathbb{E}[h(x)]}{c(n)}}
+$$
+Short average path ($s \to 1$) ⇒ anomaly; long path ($s \to 0.5$) ⇒ normal.
+* **Why it's used:** linear time, low memory, no distance metric or density estimation, and it scales to high dimensions where distance-based methods (kNN, LOF) degrade. The standard go-to for tabular fraud/intrusion anomaly screening.
+
+---
+
+## Part VII: Interpreting Tree Ensembles
+
+Ensembles trade the single tree's transparency for accuracy — but they are far from black boxes. Two interpretation tools matter, and one common metric is dangerously misleading.
+
+### The Problem with Default (Impurity) Importance
+**Mean Decrease in Impurity (MDI / Gini importance)** — the sklearn default — is **biased**: it inflates the importance of **high-cardinality** and **continuous** features simply because they offer more split points, even if they're noise. It is also computed on *training* data, so it rewards overfitting. **Do not trust it for feature selection.**
+
+* **Better:** **Permutation Importance** — shuffle one feature's values on a **held-out** set and measure the drop in performance. Model-agnostic and reflects real predictive value. Caveat: correlated features share credit and can both look unimportant.
+
+### SHAP (SHapley Additive exPlanations)
+Borrowed from cooperative game theory, **SHAP** fairly attributes a single prediction across features as the average marginal contribution of each feature over all possible feature orderings (its Shapley value). It gives an exact **additive decomposition**:
+$$
+f(x) = \phi_0 + \sum_{j=1}^{M} \phi_j
+$$
+where $\phi_0$ is the base rate and $\phi_j$ is feature $j$'s contribution to *this* prediction.
+
+* **TreeSHAP** computes exact Shapley values for tree ensembles in **polynomial time** (general SHAP is exponential), making it practical for production XGBoost/LightGBM models.
+* **Properties:** locally accurate (sums to the prediction), consistent (if a model relies more on a feature, its attribution never decreases), and supports both **local** (per-prediction) and **global** (aggregated) explanations. The standard for explaining GBM decisions in regulated domains (credit, healthcare).
+
+---
+
+## Part VIII: GBM Hyperparameter Tuning
+
+The most common interview/practice failure is treating GBM like a black box. The parameters split into three groups:
+
+### The Core Trade-off: Learning Rate ↔ Number of Trees
+* **`learning_rate` (η)** and **`n_estimators` (M)** trade off directly: a smaller η needs more trees but generalizes better. **Standard recipe:** fix a small η (e.g., 0.01–0.05), then use **early stopping** on a validation set to choose M automatically — stop when validation loss hasn't improved for `early_stopping_rounds`.
+
+### Tree-Complexity (control overfitting per learner)
+* **`max_depth`** (3–8 typical) or LightGBM's **`num_leaves`** — the single strongest overfit knob. (Note: `num_leaves` for leaf-wise growth must be set well below $2^{\text{max\_depth}}$ or trees overfit.)
+* **`min_child_weight` / `min_data_in_leaf`** — minimum evidence (sum of Hessians / sample count) per leaf; raise it to prevent the model from carving out noise.
+
+### Regularization & Stochasticity
+* **`subsample`** (row sampling < 1.0, → Stochastic GBM) and **`colsample_bytree`** (feature sampling) inject randomness that decorrelates trees and combats overfitting — borrowing the bagging idea into boosting.
+* **`reg_lambda` (L2)** and **`reg_alpha` (L1)** directly penalize leaf weights (recall the $\frac{1}{2}\lambda \sum w_j^2$ term in the XGBoost objective).
+
+> **Order of tuning:** fix a moderate η + early stopping → tune tree complexity (`max_depth`/`num_leaves`, `min_child_weight`) → tune stochasticity (`subsample`, `colsample`) → tune L1/L2 → finally lower η and raise M for a last accuracy squeeze.
+
+### Beyond the Mean: Quantile Regression
+GBMs aren't limited to point predictions. Swapping the loss to the **pinball (quantile) loss** lets a GBM predict any conditional quantile, yielding **prediction intervals**:
+$$
+L_\tau(y, \hat{y}) = \begin{cases} \tau (y - \hat{y}) & \text{if } y \geq \hat{y} \\ (\tau - 1)(y - \hat{y}) & \text{if } y < \hat{y} \end{cases}
+$$
+Train one model at $\tau = 0.05$ and another at $\tau = 0.95$ to get a 90% interval — essential for demand forecasting and risk-aware decisions where uncertainty matters as much as the point estimate.
+
+---
+
+## Additional Interview Questions
+
+#### Q9: AdaBoost and Gradient Boosting both build additive ensembles sequentially. What is the precise relationship, and why is GBM usually preferred?
+**Answer:** AdaBoost is a **special case** of forward stagewise additive modeling: minimizing the **exponential loss** $e^{-yF(x)}$ is mathematically equivalent to AdaBoost's reweighting scheme. Gradient boosting generalizes this to *any* differentiable loss by fitting learners to the negative gradient (pseudo-residuals). GBM is preferred because the exponential loss weights misclassified points exponentially, making AdaBoost very sensitive to label noise and outliers; GBM with log-loss or Huber loss degrades gracefully and supports regression, ranking, and custom objectives.
+
+#### Q10: A colleague selects features using XGBoost's default feature importances and drops everything "unimportant." Why is this risky?
+**Answer:** The default is **impurity-based (gain/MDI) importance**, which is biased toward high-cardinality and continuous features (more candidate split points) and is computed on training data, so it can credit features the model merely overfit to. A genuinely predictive low-cardinality feature may be undervalued and dropped. Use **permutation importance** on a holdout set or **SHAP** values for a faithful, consistent ranking; with correlated features, account for shared credit before removing anything.
+
+#### Q11: How would you make a gradient boosting model output a prediction interval rather than a single number?
+**Answer:** Train with the **quantile (pinball) loss** at the desired quantiles — e.g., separate models (or a multi-quantile objective) at $\tau = 0.05$ and $\tau = 0.95$ to bound a 90% interval. The asymmetric pinball loss penalizes under- and over-prediction differently so each model converges to the conditional quantile rather than the conditional mean. This gives distribution-aware uncertainty without any parametric assumption on the noise.
+
+#### Q12: Why does an Isolation Forest detect anomalies using *short* tree paths, and when does it beat distance-based methods?
+**Answer:** It builds trees with **random** feature/threshold splits. Anomalies are rare and lie in sparse regions, so a random split isolates them into their own leaf after very few cuts — a **short path length** — whereas dense normal points need many splits. The normalized average path length becomes the anomaly score. It beats kNN/LOF in **high dimensions** and on **large datasets** because it needs no distance metric or density estimate, runs in near-linear time, and uses little memory.

@@ -382,3 +382,92 @@ Video analysis introduces the temporal dimension ($T \times H \times W$), requir
 * *Remediation:* Sample training mini-batches using identity-balanced sampling rather than uniform image sampling. 
 * *Loss Optimization:* Implement class-balanced focal loss or adjust ArcFace angular margins dynamically based on demographic identity cluster frequency.
 * *Metric Evaluation:* Audit model performance using strict demographic-sliced ROC curves (evaluating False Match Rates at $10^{-5}$ thresholds independently across all demographic strata).
+
+---
+
+## Feature Pyramid Networks (FPN)
+
+Objects appear at wildly different scales — a pedestrian 20 px tall and a bus 400 px wide in the same frame. A plain CNN detector faces a dilemma: **deep** feature maps are semantically rich but spatially coarse (good for big objects, bad at localizing small ones); **shallow** maps are high-resolution but semantically weak. FPN resolves this by building a feature pyramid that is *both* high-resolution and semantically strong at every level.
+
+**Architecture — two pathways plus lateral connections:**
+1. **Bottom-up:** the normal CNN backbone forward pass, producing maps $C_2, C_3, C_4, C_5$ at strides 4, 8, 16, 32.
+2. **Top-down:** start from the deepest map $C_5$, **upsample 2×** (nearest-neighbor), and add it to the lateral $1{\times}1$-conv-projected feature from the level below:
+$$
+P_l = \text{Conv}_{3\times3}\big(\text{Upsample}(P_{l+1}) + \text{Conv}_{1\times1}(C_l)\big)
+$$
+This injects the deep map's semantics back into high-resolution levels. Each pyramid level $P_l$ then makes predictions for objects of a matched scale (small objects on fine levels, large on coarse). FPN is a near-universal **neck** — RetinaNet, Faster R-CNN, and Mask R-CNN all bolt it between backbone and detection head, and it gives large small-object AP gains for negligible cost.
+
+---
+
+## Knowledge Distillation for Vision
+
+To ship a heavy model (e.g., a ViT-L or a deep ResNet) on a phone, train a small **student** to imitate a large **teacher**. Beyond hard labels, the teacher's **soft logits** (softened with temperature $T$) encode *inter-class similarity* ("this husky looks 30% like a wolf"), a far richer signal than a one-hot label:
+$$
+\mathcal{L} = (1-\alpha)\,\text{CE}(y, \sigma(z_s)) + \alpha\, T^2 \cdot \text{KL}\big(\sigma(z_t/T) \,\|\, \sigma(z_s/T)\big)
+$$
+* **Feature distillation:** match intermediate feature maps / attention maps, not just final logits — important when teacher and student differ architecturally (CNN→CNN, ViT→ViT).
+* **Detection/segmentation distillation:** distill region features or per-pixel logits; FPN levels are natural distillation points. Distillation routinely recovers most of a 4× smaller model's accuracy gap, making it the standard companion to quantization for edge deployment.
+
+---
+
+## Open-Vocabulary Detection
+
+Classic detectors are locked to a fixed label set (the 80 COCO classes); detecting a new category means re-annotating and retraining. **Open-vocabulary** detectors instead detect arbitrary categories specified by **text at inference time**, by aligning region features with a CLIP-style text encoder.
+
+* **ViLD / RegionCLIP:** distill CLIP's image–text alignment into a detector's region embeddings so each box embedding lives in CLIP space; classify a region by its similarity to text-prompt embeddings (`"a photo of a {category}"`). New classes = new prompts, **zero retraining**.
+* **GLIP:** reformulates detection as **phrase grounding** — given an image and a sentence, localize each phrase — unifying detection and grounding and enabling training on cheap image–caption data.
+* **OWL-ViT:** a ViT with CLIP pretraining and a lightweight detection head; supports both text queries and **image-conditioned** (one-shot) queries.
+
+The shift mirrors NLP's: from closed classifiers to **promptable, language-conditioned** perception.
+
+---
+
+## Segment Anything Model (SAM)
+
+SAM is a **promptable, foundation-scale** segmentation model — the "GPT moment" for masks. Given a point, box, or text-ish prompt, it outputs valid object masks for things it was never explicitly trained on.
+
+**Three components:**
+1. **Image encoder:** a heavy MAE-pretrained ViT, run **once** per image to produce an embedding (expensive but amortized).
+2. **Prompt encoder:** lightweight encoding of points/boxes/masks.
+3. **Mask decoder:** a fast Transformer decoder that fuses image embedding + prompt to emit masks in **milliseconds** — so a user can interactively click around an image with one forward pass of the encoder.
+
+**Ambiguity handling:** a single click is ambiguous (a point on a shirt → shirt? person? stripe?), so SAM predicts **3 masks** (whole/part/subpart) with confidence scores. It was trained on **SA-1B** (1.1B masks) via a data engine that bootstrapped annotation with the model itself. SAM is a *class-agnostic* segmenter — pair it with an open-vocab classifier (Grounded-SAM) to get labeled masks.
+
+---
+
+## Depth Estimation
+
+Recovering 3D geometry (per-pixel distance) from images.
+* **Stereo:** two calibrated cameras; find horizontal pixel **disparity** $d$ between matched points, then $\text{depth} = \frac{f \cdot B}{d}$ (focal length $f$, baseline $B$). Disparity is inversely proportional to depth — far objects shift little.
+* **Monocular (single image):** geometrically ill-posed (a small near object and a large far object project identically), so the model must learn **priors** (object sizes, perspective, texture gradients). MiDaS and Depth Anything train on mixed datasets and predict **scale-invariant** relative depth (correct ordering/ratios, unknown absolute scale).
+* **Self-supervised:** train without depth labels by predicting depth + camera pose, warping one video frame to the next, and minimizing **photometric reconstruction** error — geometry falls out of "what warping explains the motion."
+
+---
+
+## Advanced Data Augmentation
+
+Beyond flips/crops, regularizers that reshape the loss landscape:
+* **Mixup:** blend two images *and* their labels linearly: $\tilde{x} = \lambda x_i + (1-\lambda) x_j$, $\tilde{y} = \lambda y_i + (1-\lambda) y_j$, $\lambda \sim \text{Beta}(\alpha, \alpha)$. Encourages linear behavior between classes, improving calibration and robustness.
+* **CutMix:** paste a rectangular patch from image B into image A; mix labels in proportion to **patch area**. Unlike Cutout (which deletes a region), no pixels are wasted, and it forces the model to use multiple object parts.
+* **AutoAugment / RandAugment:** instead of hand-tuning, **search** for augmentation policies. RandAugment simplifies the search to two scalars (number of ops $N$, global magnitude $M$), making it practical to tune.
+* **Caution:** augmentation must respect task semantics — vertical-flipping digits or text breaks labels; heavy color jitter harms medical imaging where color *is* the signal.
+
+---
+
+## Additional Interview Questions
+
+**Q: Why does FPN improve small-object detection specifically, and where in the network do its predictions come from?**
+
+Small objects need high spatial resolution to localize, which only shallow feature maps provide — but those maps are semantically weak. FPN's top-down pathway upsamples deep, semantically rich features and **adds** them (via lateral connections) into the high-resolution shallow maps, so each pyramid level is simultaneously fine-grained and semantic. Predictions are made at multiple levels, with small objects assigned to the finest ($P_2/P_3$) levels.
+
+**Q: A distilled student matches the teacher on overall accuracy but fails on rare classes. Why might soft-label distillation help here, and what would you adjust?**
+
+Hard labels give no signal about rare-class confusability, but the teacher's **soft logits** reveal which classes it confuses, transferring "dark knowledge" the student can't get from one-hot targets alone. If rare classes still suffer, **raise the temperature $T$** (sharpens relative inter-class structure in the soft targets), increase the distillation weight $\alpha$, and add **feature-level** distillation so the student inherits the teacher's representation, not just its outputs. Class-balanced sampling during distillation also helps.
+
+**Q: How does an open-vocabulary detector recognize a category it never saw in its detection training data?**
+
+It aligns region embeddings with a **frozen CLIP text encoder**: each box is embedded into CLIP's joint image–text space, and classification is nearest-text-prompt rather than a fixed softmax head. A novel category is just a new text prompt at inference (`"a photo of a {novel class}"`), so no box annotations or retraining are required — the visual–semantic alignment learned from web-scale image–text pairs generalizes to unseen labels.
+
+**Q: Why does SAM output multiple masks per prompt, and why is its image encoder run only once?**
+
+A single point/box prompt is **ambiguous** (a click could mean a part, an object, or a group), so SAM emits 3 candidate masks at different granularities with confidence scores to cover the ambiguity. The heavy ViT image encoder produces an embedding that is **prompt-independent**, so it's computed once per image; the lightweight prompt encoder + mask decoder then run in milliseconds per prompt, enabling real-time interactive segmentation.

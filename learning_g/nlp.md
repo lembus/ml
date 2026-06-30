@@ -609,3 +609,209 @@ If the model generates a slightly erroneous token at step $t$, it shifts the dec
 1. **Query Decomposition:** Use an LLM agent to decompose the complex query into sequential sub-queries.
 2. **Multi-Step Retrieval Loop:** Execute retrieval for Sub-Query 1. Ingest retrieved passages to extract the intermediate entity (*"Alexander Fleming"*).
 3. **Contextual Reformulation:** Dynamically formulate Sub-Query 2 (*"Who was the doctoral advisor of Alexander Fleming?"*), execute secondary retrieval, and feed the fully resolved multi-document chain into the generator.
+
+---
+
+## Topic 10: Sentence Embeddings & Semantic Similarity
+
+### Motivation & Intuition
+Word-level models like BERT produce a contextualized token representation for every input token, but many practical tasks require a single vector representing an entire sentence or paragraph — for fast retrieval over millions of documents, clustering, semantic deduplication, and paraphrase detection.
+
+The naive approach of averaging BERT token embeddings produces poor sentence representations because BERT was pre-trained on token-level tasks (Masked LM) and its pooling is not calibrated for sentence-level semantic similarity.
+
+* **Real-World Problem:** A legal search engine must find all case documents semantically similar to a query brief among 10 million documents in under 100ms. Cross-encoding every document pair with BERT would require $10^7$ forward passes — computationally intractable at query time.
+
+### Conceptual Foundations
+
+#### Bi-Encoders (Dual Encoders)
+The query and each document are encoded **independently** through a shared Transformer backbone, producing fixed-size sentence embeddings. Similarity is computed via a lightweight dot product or cosine similarity:
+
+$$\text{score}(q, d) = \cos(E(q), E(d)) = \frac{E(q) \cdot E(d)}{||E(q)|| \cdot ||E(d)||}$$
+
+* **Advantage:** Document embeddings can be pre-computed offline and stored in a vector index (e.g., FAISS, ScaNN). Query encoding requires a single forward pass; retrieval requires only a nearest-neighbor search.
+* **Limitation:** The query and document never interact during encoding. The model cannot capture fine-grained cross-document dependencies (e.g., recognizing that a query pronoun refers to a document's subject).
+
+#### Cross-Encoders
+The query and document are concatenated and processed jointly through a Transformer, allowing every query token to attend to every document token:
+
+$$\text{score}(q, d) = \text{softmax}(W \cdot h_{\text{CLS}}[q; d])$$
+
+* **Advantage:** Full cross-attention enables precise relevance scoring.
+* **Limitation:** Cannot pre-compute document representations; every (query, document) pair requires a full forward pass at inference time. Scales as $O(N)$ per query over $N$ documents.
+
+#### Sentence-BERT (SBERT)
+SBERT fine-tunes a BERT backbone using **Siamese Network** training to produce sentence embeddings calibrated for cosine similarity:
+
+1. Both sentences $s_1, s_2$ pass through shared BERT weights.
+2. Mean-pool all token embeddings to produce $u = \text{MeanPool}(H_1)$ and $v = \text{MeanPool}(H_2)$.
+3. Concatenate $[u; v; |u-v|]$ and classify semantic similarity, or minimize cosine distance for positive pairs.
+
+#### Retrieval Architecture: Bi-Encoder + Cross-Encoder Pipeline
+Production systems combine both: the bi-encoder retrieves the top-$k$ candidates efficiently; the cross-encoder re-ranks those $k$ candidates with high precision. This provides near cross-encoder accuracy at near bi-encoder latency.
+
+### Mathematical Formulation: Multiple Negatives Ranking Loss
+Training bi-encoders with standard supervised pairs is inefficient. The **Multiple Negatives Ranking (MNR) loss** treats every other sample in a batch of $N$ positive pairs $(q_i, d_i)$ as a negative for each query $q_i$:
+
+$$\mathcal{L}_{\text{MNR}} = -\frac{1}{N} \sum_{i=1}^N \log \frac{\exp(\cos(E(q_i), E(d_i)) / \tau)}{\sum_{j=1}^N \exp(\cos(E(q_i), E(d_j)) / \tau)}$$
+
+This is mathematically identical to the InfoNCE / NT-Xent contrastive loss, applied to sentence-document pairs rather than image augmentation pairs. Large batch sizes provide more in-batch negatives, improving the quality of learned similarity surfaces.
+
+### Worked Example: Semantic Search Pipeline
+**Query:** "What are the side effects of ibuprofen?"
+
+1. **Offline Indexing:** Encode all 5M medical FAQ documents using a bi-encoder (e.g., `all-mpnet-base-v2`). Store 768-dimensional vectors in a FAISS flat index.
+2. **Online Query:** Encode the query vector. Execute ANN search (FAISS IVF index) to retrieve top-100 candidate documents in ~5ms.
+3. **Re-Ranking:** Pass all 100 (query, candidate) pairs through a cross-encoder fine-tuned on medical QA relevance. Select the top-5 highest-scoring documents.
+4. **Response:** Feed retrieved passages to an LLM for answer synthesis.
+
+### Relevance to ML Practice
+* **Embedding Model Selection:** General-purpose embedding models (SBERT, `text-embedding-3-large`) perform well on diverse retrieval tasks. Domain-specific tasks (legal, medical, code) benefit from in-domain fine-tuning on supervised triplets (query, positive document, hard negative document).
+* **Hard Negative Mining:** Training bi-encoders with random negatives is suboptimal — the model quickly learns to distinguish random irrelevant documents. Hard negatives (documents retrieved by BM25 that are semantically related but not the true answer) dramatically improve bi-encoder discriminativity.
+* **Dimensionality Reduction:** High-dimensional embeddings ($d = 768$) increase storage and search latency. Matryoshka Representation Learning (MRL) trains embeddings so that the first $d'$ dimensions ($d' < d$) already form a high-quality lower-dimensional representation, enabling flexible dimension truncation at deployment time.
+
+### Common Pitfalls
+* **Cosine vs. Dot Product:** Unnormalized bi-encoder embeddings can be compared via dot product (which mixes similarity and magnitude). For semantic similarity tasks, always L2-normalize embeddings before comparison — cosine similarity is dot product on unit-normalized vectors.
+* **Anisotropic Embedding Spaces:** BERT sentence embeddings concentrate in a narrow cone of the embedding space (high anisotropy), degrading cosine similarity discrimination. Post-processing with whitening (PCA followed by L2-normalization) substantially improves retrieval metrics.
+
+---
+
+## Topic 11: Instruction Tuning & Reinforcement Learning from Human Feedback
+
+### Motivation & Intuition
+A pre-trained language model (e.g., GPT, LLaMA) is optimized to predict the next token in internet text. This objective does not align with what users actually want: a model that answers questions accurately, follows instructions, refuses harmful requests, and maintains coherent conversation. The gap between the pre-training objective and the deployment objective is the **alignment problem**.
+
+* **Pre-trained model behavior:** Given "How do I make a bomb?", the model might complete the sentence with plausible-sounding text from the training distribution.
+* **Aligned model behavior:** The same model should recognize the harmful intent, refuse the request, and explain why.
+
+### Conceptual Foundations
+
+#### Stage 1: Supervised Fine-Tuning (SFT)
+Collect human-written demonstrations of desired behavior — instruction-response pairs: `(instruction, ideal response)`. Fine-tune the pre-trained LM on these pairs via standard cross-entropy loss:
+
+$$\mathcal{L}_{\text{SFT}} = -\sum_{t} \log P_\theta(y_t \mid x, y_{<t})$$
+
+SFT teaches the model the format and style of instruction-following, but the quality is bounded by the quality and diversity of the demonstration data. Models trained on SFT alone often generate verbose, sycophantic, or hallucinated responses.
+
+#### Stage 2: Reward Model Training
+Given a prompt $x$ and two model responses $(y_a, y_b)$, human raters select which response is better along specified dimensions (helpfulness, harmlessness, honesty). A **reward model** $R_\phi$ is trained on these binary preference comparisons:
+
+$$\mathcal{L}_{\text{RM}} = -E_{(x, y_w, y_l) \sim \mathcal{D}} \left[\log \sigma(R_\phi(x, y_w) - R_\phi(x, y_l))\right]$$
+
+* $y_w$: The human-preferred (winning) response.
+* $y_l$: The less-preferred (losing) response.
+* $\sigma$: Sigmoid function.
+
+The loss maximizes the probability that the reward model assigns a higher score to the preferred response than the rejected response.
+
+#### Stage 3: RLHF with PPO (Proximal Policy Optimization)
+The SFT model is treated as a policy $\pi_\theta$. For each prompt $x$, it generates a response $y \sim \pi_\theta(\cdot \mid x)$. The reward model provides a scalar reward $r = R_\phi(x, y)$.
+
+The policy is updated to maximize expected reward while staying close to the SFT reference policy $\pi_{\text{ref}}$ (to prevent reward hacking via the KL penalty $\beta$):
+
+$$\mathcal{L}_{\text{RLHF}} = E_{x \sim \mathcal{D},\, y \sim \pi_\theta(\cdot|x)}\left[R_\phi(x, y)\right] - \beta \cdot D_{\text{KL}}\left[\pi_\theta(\cdot|x) \,\|\, \pi_{\text{ref}}(\cdot|x)\right]$$
+
+The KL penalty prevents the model from exploiting the reward model via degenerate outputs that score high but are semantically empty (reward hacking).
+
+#### Direct Preference Optimization (DPO)
+DPO eliminates the explicit reward model and PPO training loop. It derives an equivalent optimization directly from preference pairs $(y_w, y_l)$:
+
+$$\mathcal{L}_{\text{DPO}} = -E_{(x, y_w, y_l)}\left[\log \sigma\left(\beta \log \frac{\pi_\theta(y_w | x)}{\pi_{\text{ref}}(y_w | x)} - \beta \log \frac{\pi_\theta(y_l | x)}{\pi_{\text{ref}}(y_l | x)}\right)\right]$$
+
+**Intuition:** DPO implicitly defines a reward function via the log-ratio of the trained policy to the reference policy, and directly optimizes for preferences without ever instantiating the reward model as a separate network. This avoids the instability of PPO (requiring careful reward model calibration, clipping, and value network training) at the cost of offline optimization (cannot explore new responses during training).
+
+### Worked Example: Why SFT Alone Is Insufficient
+**Prompt:** "Explain quantum entanglement to a 10-year-old."
+
+**SFT response (from internet demonstration data):** *"Quantum entanglement is a phenomenon where two particles become correlated such that the quantum state of each particle cannot be described independently of the state of the others, even when separated by a large distance. As described by EPR paradox..."*
+
+**Problem:** The response uses technical jargon inappropriate for a 10-year-old. SFT reproduced the style of the training demonstration (a physics explanation from a textbook) rather than adapting to the instruction's constraint.
+
+**RLHF response (after reward model training on child-appropriateness):** *"Imagine you and your friend each take one magic glove from a pair. You keep one and your friend goes to another country with the other. The moment you look at your glove and see it's the left glove, you instantly know your friend has the right glove — no matter how far away they are. Quantum entanglement is like that, except with tiny particles that behave like magic gloves!"*
+
+**Why RLHF works:** The reward model, trained on human preferences, assigns high scores to responses that are age-appropriate, accurate, and engaging. RLHF optimizes the policy to maximize this reward — finding phrasings that satisfy the constraint rather than reproducing average training text.
+
+### Relevance to ML Practice
+* **SFT vs. RLHF Data Efficiency:** SFT requires high-quality demonstrations (expensive to produce). RLHF requires preference rankings (rater says "A is better than B" — faster than writing ideal responses from scratch). A typical ratio in production: 10–100k SFT examples, 100k–1M preference pairs.
+* **DPO in Production:** DPO has largely supplanted PPO-based RLHF in production LLM training for its stability and simplicity. State-of-the-art models (LLaMA 3, Mistral, Gemma) use DPO or variants (IPO, KTO) as the final alignment stage.
+* **Constitutional AI (CAI):** Anthropic's approach to alignment that replaces human preference labelers with an AI itself (Claude) critiquing and revising its own outputs according to a written "constitution" of principles — then training on the AI-generated preference data. This reduces human labeling cost at scale.
+
+### Common Pitfalls
+* **Reward Hacking:** The policy finds responses that score high on the reward model but violate the intended spirit — verbose hedging, excessive disclaimers, sycophantic agreement. Mitigation: use diverse reward models, add critique-based rewards, and monitor qualitative degradation.
+* **KL Penalty Miscalibration:** If $\beta$ is too low, the policy drifts far from the SFT reference and collapses into degenerate high-reward outputs. If $\beta$ is too high, the policy barely moves from the SFT baseline, making RLHF ineffective.
+* **Mode Collapse in SFT:** If demonstration data lacks diversity, SFT models produce homogeneous responses regardless of input variation. Mitigation: curate diverse instruction templates and response styles, ensure coverage across domains and difficulty levels.
+
+---
+
+## Topic 12: Cross-lingual NLP
+
+### Motivation & Intuition
+The majority of the world's digital content is not in English. Building separate monolingual models for each language is economically infeasible (data labeling costs, infrastructure duplication) and fails for low-resource languages with insufficient training data. **Cross-lingual transfer** aims to train once on high-resource languages and transfer to low-resource target languages zero-shot or with minimal fine-tuning.
+
+* **Real-World Problem:** A misinformation detection system must operate across 50 languages. Labeled misinformation datasets exist only for English and Spanish. Cross-lingual transfer deploys a multilingual model fine-tuned on English/Spanish labels to classify misinformation in Swahili, Bengali, and Tagalog.
+
+### Conceptual Foundations
+
+#### Multilingual Pre-trained Models
+
+* **mBERT (Multilingual BERT):** Trained on 104 languages simultaneously using Masked Language Modeling, with a shared vocabulary (WordPiece over a $\sim$120k subword vocabulary). The model shares all parameters across languages — no language-specific weights. Despite being trained with no cross-lingual supervision (no parallel corpora), mBERT develops some cross-lingual alignment because multilingual corpora share subword tokens, structural patterns, and semantic concepts.
+
+* **XLM (Cross-Lingual Language Model):** Extends mBERT with two additional pre-training objectives:
+  * **Translation Language Modeling (TLM):** Concatenates aligned sentence pairs (English + French) and applies Masked LM, forcing the model to attend across language boundaries to predict masked tokens.
+  * This explicit cross-lingual signal substantially improves cross-lingual alignment compared to mBERT.
+
+* **XLM-R (XLM-RoBERTa):** Trains a RoBERTa-style model on 2.5TB of filtered CommonCrawl data across 100 languages, with sampling strategies that balance high-resource and low-resource languages. XLM-R substantially outperforms mBERT on cross-lingual benchmarks, particularly for low-resource languages, due to the larger data scale and better tokenization (SentencePiece BPE with shared vocabulary of 250k tokens).
+
+#### Zero-Shot Cross-Lingual Transfer
+Fine-tune a multilingual model on English labeled data, then directly evaluate on target-language test sets without any target-language labeled examples:
+
+$$\theta^* = \arg\min_\theta \mathcal{L}_{\text{SFT}}(\theta; \mathcal{D}_{\text{English}})$$
+
+Inference: $\hat{y} = f_{\theta^*}(x_{\text{target-language}})$
+
+This works because the multilingual model maps semantically equivalent expressions in different languages to nearby regions of the embedding space. The classifier trained on English feature representations generalizes to feature representations of equivalent content in other languages.
+
+#### Vocabulary Allocation Curse
+In a shared multilingual vocabulary, high-resource languages (English, French, German) dominate the vocabulary space, leaving low-resource languages severely under-represented. A 100-character English word may tokenize into 2 tokens; the same concept in Yoruba may tokenize into 15+ tokens due to lack of common subwords — consuming disproportionate context window space and degrading model performance for those languages.
+
+### Mathematical Formulation: Cross-Lingual Alignment
+Define language-specific sentence encoders $f_\text{EN}$ and $f_\text{DE}$ for English and German respectively. Cross-lingual alignment requires that semantically equivalent sentences $s_\text{EN}$ and $s_\text{DE}$ (translations of each other) produce geometrically proximate representations:
+
+$$||f(s_\text{EN}) - f(s_\text{DE})||_2 \leq \epsilon$$
+
+Multilingual models achieve this implicitly through shared weight parameters and shared vocabulary. **LASER** achieves it explicitly by training a shared LSTM encoder on parallel corpora with a translation objective, directly optimizing for cross-lingual embedding alignment across 93 languages.
+
+### Worked Example: Zero-Shot Cross-Lingual NER
+**Training:** Fine-tune XLM-R on English NER data (CoNLL-2003). Model learns to identify `B-PER`, `I-PER`, `B-ORG` etc. in English sentences.
+
+**Inference (Spanish, zero-shot):**
+* Input: `"Pedro Almodóvar nació en Calzada de Calatrava."`
+* XLM-R encodes this via its shared multilingual representations.
+* The NER classifier head, trained only on English features, fires on the Spanish token `"Pedro Almodóvar"` because its multilingual representation is geometrically close to English person-name representations in the shared embedding space.
+* Output: `[B-PER, I-PER, O, O, B-LOC, I-LOC, I-LOC, O]`
+
+Performance typically drops 10–20 F1 points compared to supervised target-language performance, but remains far above chance — demonstrating successful cross-lingual transfer.
+
+### Relevance to ML Practice
+* **Language Selection for Transfer:** Transfer performance degrades with linguistic distance from the training language. English fine-tuned models transfer well to French and German (Indo-European, Latin script) but poorly to Arabic (Semitic, RTL script) and Finnish (Finno-Ugric, rich morphology). Intermediate fine-tuning on a linguistically adjacent language improves transfer to distant targets.
+* **Few-Shot vs. Zero-Shot:** Even 10–50 target-language labeled examples (few-shot transfer) dramatically close the gap to fully supervised performance. Label efficiency should guide annotation budget allocation: label a small representative set in each target language rather than exhaustively labeling one language.
+* **Translation as a Baseline:** Translating all target-language inputs to English before applying a monolingual English model is a strong baseline, especially when a high-quality MT system is available. This avoids training a multilingual model entirely at the cost of translation latency and MT errors.
+
+### Common Pitfalls
+* **English-Centric Evaluation:** Models tuned primarily on English data may appear strongly multilingual on benchmarks that use English as the source language for all transfers. Evaluate on genuinely low-resource languages and language pairs with no English in the transfer chain to expose actual cross-lingual capability.
+* **Script and Tokenization Failures:** Languages sharing a script with high-resource training languages (e.g., Vietnamese using Latin script) benefit from better tokenization coverage than languages using unique scripts (e.g., Georgian, Tibetan). Script mismatches can cause catastrophic tokenization inefficiency that model capacity cannot compensate for.
+
+---
+
+## Extended Interview Questions
+
+#### Q24: What is the difference between a Bi-Encoder and a Cross-Encoder for semantic similarity? When do you use each?
+**Answer:** A **Bi-Encoder** encodes query and document independently through a shared backbone, producing separate fixed-size vectors compared via cosine similarity. It enables offline pre-computation of document embeddings and sub-millisecond retrieval over millions of documents via ANN search. However, query and document tokens never interact during encoding, limiting the model's ability to capture fine-grained relevance signals. A **Cross-Encoder** concatenates query and document and processes them jointly, allowing full cross-attention and precise relevance scoring — but requires a separate forward pass per (query, document) pair, making it $O(N)$ per query and infeasible for large corpora. The standard production architecture combines both: bi-encoder for first-stage retrieval (top-$k$ candidates), cross-encoder for second-stage re-ranking (precise ordering of $k$ candidates).
+
+#### Q25: Explain the KL-divergence penalty in RLHF's PPO objective. What failure mode does it prevent, and what failure mode does it introduce?
+**Answer:** The KL penalty $\beta \cdot D_{\text{KL}}[\pi_\theta \| \pi_{\text{ref}}]$ constrains the fine-tuned policy $\pi_\theta$ to remain close to the SFT reference policy $\pi_{\text{ref}}$. It prevents **reward hacking** — the tendency of the policy to find degenerate response patterns that exploit flaws in the reward model to achieve high scores without satisfying the true user intent (e.g., generating very long responses full of disclaimers, because the reward model was trained on short preference comparisons that did not penalize verbosity). The failure mode the KL penalty introduces is that it limits the **range of alignment** achievable: if the reference policy is poorly calibrated (because SFT data was low-quality), the KL constraint prevents the RLHF stage from correcting the fundamental distribution. Balancing $\beta$ is critical — too small allows reward hacking; too large makes RLHF ineffective.
+
+#### Q26: You are building a sentiment analysis system that must work across 12 languages, and you have 50,000 labeled English examples and 200 labeled examples per non-English language. Describe your training strategy.
+**Answer:** Use **XLM-R** as the backbone (strong multilingual representations pre-trained on 100 languages). Training proceeds in three stages: (1) **Zero-shot baseline** — fine-tune XLM-R exclusively on the 50,000 English examples; this provides a working multilingual system immediately. (2) **Few-shot augmentation** — incorporate the 200 labeled examples per language into fine-tuning with a per-language loss weighting that up-samples low-resource languages relative to English (otherwise English dominates and the model regresses on low-resource targets). (3) **Cross-lingual consistency regularization** — for each labeled example, generate a machine translation into a related language and require the model to produce consistent predictions on both (consistency loss), effectively multiplying the labeled data via translation. Evaluate using a stratified per-language test set to detect language-specific degradation rather than an aggregate metric that English would dominate.
+
+#### Q27: What is Direct Preference Optimization (DPO), and why has it largely replaced PPO-based RLHF in practice?
+**Answer:** DPO reframes RLHF as a classification problem over preference pairs $(y_w, y_l)$, eliminating the need for an explicit reward model and the on-policy PPO training loop. It derives a closed-form objective by showing that, under a KL-constrained RLHF formulation, the optimal policy can be expressed directly in terms of log-ratios between the fine-tuned and reference policies — which can be computed entirely offline from a static preference dataset. PPO-based RLHF requires: (1) training a separate reward model, (2) running on-policy rollouts to sample new responses during training, (3) maintaining a value network for advantage estimation, and (4) careful PPO hyperparameter tuning (clip ratio, GAE lambda, value loss coefficient). Each step introduces instability. DPO requires only a single stage of offline fine-tuning on a fixed preference dataset with a single loss function, dramatically reducing implementation complexity. The empirical tradeoff: DPO cannot improve beyond what is captured in its static preference dataset (no exploration), whereas on-policy RLHF can discover novel high-reward responses not present in the original data.

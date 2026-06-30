@@ -276,3 +276,112 @@ This is **Training-Serving Skew**.
 **Q: What is the "Thundering Herd" problem in scaling?**
 
 If a large number of scaling instances (autoscaling) all start up simultaneously and try to connect to the database or cache to load the model/data, they can crash the backend dependencies. The fix is exponential backoff (random delays before connecting) and slow-start strategies.
+
+---
+
+## Inference Optimization
+
+Serving a model is rarely about running `model.predict()` unchanged. The same network can be made 2–10× cheaper and faster *before* you ever buy a bigger GPU. These optimizations trade a small, measurable accuracy loss for large latency/cost wins.
+
+### Quantization
+Store and compute weights/activations in lower precision than FP32.
+* **FP16 / BF16:** Halve memory and roughly double throughput on modern accelerators with negligible accuracy loss. BF16 keeps FP32's exponent range (fewer overflow issues) at the cost of mantissa precision — the default for inference today.
+* **INT8 (Post-Training Quantization, PTQ):** Map FP32 ranges to 8-bit integers using a scale factor: $x_{\text{int}} = \text{round}(x / s)$, where $s = \frac{\max|x|}{127}$. Requires a small **calibration set** to estimate activation ranges. Typically <1% accuracy drop, ~4× memory reduction.
+* **Quantization-Aware Training (QAT):** Simulate quantization during training (fake-quant nodes) so the model *learns* to be robust to it. Recovers most of the accuracy PTQ loses, at the cost of a retraining cycle. Use when PTQ degrades a sensitive model below SLA.
+* **Pitfall:** Quantizing **outlier-heavy** layers (e.g., attention logits, LayerNorm) can blow up error. Modern schemes keep these in higher precision (mixed precision) or use per-channel rather than per-tensor scales.
+
+### Pruning & Distillation
+* **Pruning:** Zero out weights with small magnitude. *Unstructured* pruning yields sparse matrices that need special kernels to actually speed up; *structured* pruning removes whole channels/heads and gives real wall-clock gains on commodity hardware.
+* **Knowledge Distillation:** Train a small **student** to mimic a large **teacher's** soft output distribution (logits), not just hard labels. The soft targets carry "dark knowledge" (relative class similarities) that lets a 6-layer model recover most of a 24-layer model's quality. DistilBERT (~40% smaller, ~60% faster, ~97% of BERT's GLUE score) is the canonical example.
+
+### Compilation & Kernel Fusion
+Frameworks execute ops one-at-a-time with Python overhead. **Graph compilers** (TensorRT, ONNX Runtime, TVM, `torch.compile`) fuse adjacent ops (e.g., Conv→BatchNorm→ReLU into a single kernel), pick hardware-optimal kernels, and eliminate launch overhead. TensorRT additionally does precision calibration and layer auto-tuning for NVIDIA GPUs. This is usually the **highest ROI** optimization for GPU serving and requires no accuracy trade-off.
+
+---
+
+## Inference Serving Frameworks
+
+A model file is not a service. Dedicated inference servers add the production machinery you'd otherwise rebuild by hand:
+
+* **NVIDIA Triton Inference Server:** Multi-framework (TensorRT, ONNX, PyTorch, TF), **dynamic batching**, concurrent model execution, and model ensembles. The standard for high-throughput GPU serving.
+* **TorchServe / TensorFlow Serving:** Framework-native servers with versioning, batching, and metrics endpoints.
+* **vLLM / TGI (LLM-specific):** Built around **PagedAttention** and **continuous batching** to serve LLMs efficiently — they manage the KV-cache as paged memory and dynamically add/evict requests from the running batch.
+
+### Dynamic Batching
+GPUs are throughput devices: processing 32 requests together costs barely more than processing 1. A dynamic batcher holds incoming requests for a tiny window (e.g., 5 ms) to assemble a batch, trading a small latency increase for a large throughput gain. **The core tension:** larger batches → higher throughput but higher tail latency. The max batch size and queue-wait timeout are tuned directly against your p99 latency SLA.
+
+### Continuous Batching (for autoregressive LLMs)
+Static batching wastes the GPU when sequences in a batch finish at different times (short generations idle while waiting for the longest). **Continuous (in-flight) batching** evicts finished sequences and admits new requests every decoding step, keeping the GPU saturated — often a 2–4× throughput gain for LLM serving.
+
+---
+
+## Advanced Deployment Strategies
+
+Beyond canary, three patterns govern how new model versions reach traffic safely:
+
+### Shadow Deployment (Dark Launch)
+The new model receives a **copy** of live production traffic but its predictions are **logged, never served**. You compare shadow vs. live offline.
+* **Use when:** You need real-traffic validation with **zero user risk** — there is no way for a shadow mistake to reach a user.
+* **Cost/limitation:** You pay for double inference compute, and you cannot measure **business metrics** that depend on the prediction actually being acted on (e.g., click-through), only prediction-level agreement and latency.
+
+### Blue-Green Deployment
+Maintain two complete, identical environments: **Blue** (current live) and **Green** (new version). Deploy and smoke-test on Green, then **flip the router** to send 100% of traffic to Green atomically.
+* **Advantage:** Instant rollback — flip back to Blue if anything breaks. No partial-state weirdness.
+* **Cost:** You run double the infrastructure during the cutover. Contrast with **canary**, which shifts traffic *gradually* (1% → 5% → 25% → 100%) on shared infra and catches issues at low blast radius but exposes some users to the new version immediately.
+
+| Strategy | User risk | Infra cost | Rollback | Measures business metrics? |
+| :--- | :--- | :--- | :--- | :--- |
+| **Shadow** | None | 2× compute | N/A (not serving) | No (logging only) |
+| **Canary** | Low (small %) | ~1× (shared) | Fast (stop ramp) | Yes |
+| **Blue-Green** | All-or-nothing | 2× during cutover | Instant (flip) | Yes |
+
+---
+
+## Model Monitoring & Observability
+
+A model that passed offline eval can silently rot in production because the *world* changes. Monitoring spans three layers:
+
+### 1. Operational (System) Health
+Standard service SRE: request rate (throughput), error rate, and **latency percentiles** (track p50/p95/**p99**, never just the mean — tail latency drives user experience and timeout cascades). Plus resource saturation: GPU utilization, memory, queue depth.
+
+### 2. Data & Feature Drift
+The input distribution at serving time diverges from training. Detect *without labels* by comparing distributions:
+* **Population Stability Index (PSI):** bin a feature, compare serving vs. reference proportions.
+$$\text{PSI} = \sum_{i=1}^{B} (p_i^{\text{serve}} - p_i^{\text{train}}) \cdot \ln\!\left(\frac{p_i^{\text{serve}}}{p_i^{\text{train}}}\right)$$
+Rule of thumb: PSI < 0.1 stable, 0.1–0.25 moderate drift, > 0.25 significant — investigate. Also used: KL divergence, KS test, and embedding-distribution distances for unstructured inputs.
+
+### 3. Concept Drift & Model Quality
+The relationship $P(y \mid x)$ itself changes (e.g., fraud patterns evolve, fashion preferences shift). This is the dangerous one because inputs can look perfectly in-distribution while accuracy collapses.
+* **The label-delay problem:** Ground truth often arrives hours-to-months later (did the user repay the loan? was the transaction actually fraud?). You usually *cannot* compute accuracy in real time.
+* **Proxies while waiting for labels:** monitor **prediction drift** (distribution of model outputs over time), confidence/score distributions, and downstream business KPIs (conversion, charge-back rate). A sudden shift in the *output* distribution is an early alarm even before labels land.
+
+### Alerting & Response
+Wire drift and quality breaches to alerts that trigger a defined response: auto-rollback to the previous version, route to a fallback heuristic, or kick off a retraining pipeline. **Closing this loop** (monitor → detect → retrain → redeploy) is what makes a deployment a *continuously trained* system rather than a static artifact.
+
+---
+
+## Continuous Delivery for ML (CD4ML)
+
+ML deployment has **three** versioned artifacts where software has one: **code**, **data**, and **model**. Reproducibility requires versioning all three together (e.g., Git for code, DVC/lakeFS for data, a **model registry** like MLflow for models with lineage linking each model back to the exact data + code that produced it).
+
+A mature pipeline automates: data validation → training → offline evaluation gate → registration → staged rollout (shadow/canary) → monitoring → (drift-triggered) retraining. The **evaluation gate** is critical: a model is only promoted if it beats the incumbent on held-out metrics *and* passes fairness/slice checks — preventing a numerically-better-but-broken model from auto-deploying.
+
+---
+
+## Additional Interview Questions
+
+**Q: A model passes offline evaluation but its INT8-quantized production version shows a 4% accuracy drop. What's likely happening and how do you fix it without abandoning quantization?**
+
+Post-training quantization clips activation outliers; layers with heavy-tailed activations (attention, certain final layers) lose the most. Fixes, in order of effort: (1) use **per-channel** instead of per-tensor scales; (2) keep the sensitive layers in **FP16 (mixed precision)** while quantizing the rest; (3) improve the **calibration set** to better represent production ranges; (4) if still short, switch to **quantization-aware training** so the model learns robustness to the rounding.
+
+**Q: When would you choose shadow deployment over a canary?**
+
+Shadow when the risk of *any* user seeing a bad prediction is unacceptable (e.g., medical, credit decisions) and you only need to validate prediction quality/latency against real traffic. Its limitation is that it can't measure metrics requiring the prediction to be *acted on* (CTR, conversion) — for those you need canary or blue-green, which actually serve the new version to some users.
+
+**Q: Your input feature distributions look stable (low PSI everywhere) but model accuracy is dropping. What kind of drift is this and why is it hard?**
+
+This is **concept drift**: $P(y\mid x)$ changed while $P(x)$ stayed the same, so distribution-based input monitors stay silent. It's hard because you can only catch it via **labels**, which are typically delayed. Mitigate with proxy signals (prediction-distribution drift, business KPIs) for early warning and a scheduled/triggered retraining cadence to keep the model current.
+
+**Q: Why does dynamic batching improve throughput but risk violating a latency SLA, and how do you tune it?**
+
+GPUs amortize fixed per-call overhead across a batch, so throughput rises with batch size — but assembling a batch means **waiting** for requests, and larger batches take longer to compute, both inflating tail latency. Tune the **max batch size** and **queue-wait timeout** against your p99 budget: cap batch size so worst-case compute fits the SLA, and set the timeout short enough that under low load a request isn't starved waiting for batch-mates that never arrive.

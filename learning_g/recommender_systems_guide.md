@@ -590,3 +590,123 @@ Because real-time graph updating algorithms (like streaming ALS or online Word2V
    * Enforce **Bayesian Prior Smoothing** on real-time item similarity calculations:
      $$\text{Sim}_{\text{smoothed}}(i, j) = \frac{\text{Co-clicks}(i, j) + \alpha \cdot \text{Prior}(i, j)}{\text{Total Clicks} + \alpha}$$
      Where $\alpha$ is a massive damping constant ($\sim 10,000$), ensuring temporary flash sale co-clicks cannot statistically override long-term historical category boundaries.
+
+---
+
+## Part X: Two-Tower Retrieval Architecture (Deep Dive)
+
+Matrix factorization learns one embedding per user/item ID and cannot embed a **brand-new** user or item, nor incorporate rich side features. The **Two-Tower (dual-encoder)** model generalizes MF into a deep, feature-driven retrieval system and is the workhorse of modern industrial candidate generation (YouTube, Google Play).
+
+### Architecture
+Two independent neural networks ("towers"):
+* **User/Query tower:** $f_\theta(\text{user features, context}) \rightarrow \mathbf{u} \in \mathbb{R}^d$. Inputs: user ID embedding, demographics, history (e.g., averaged embeddings of recently watched items), device, time of day.
+* **Item/Candidate tower:** $g_\phi(\text{item features}) \rightarrow \mathbf{v} \in \mathbb{R}^d$. Inputs: item ID, category, text/image embeddings, age.
+
+Score is the dot product (or cosine) $s(u, i) = \mathbf{u}^\top \mathbf{v}$.
+
+### Why the separation matters (the whole point)
+Because the towers never interact until the final dot product, **all item embeddings can be precomputed offline** and loaded into an **ANN index** (HNSW/IVF). At serving time you run the user tower *once*, then do a sub-millisecond approximate nearest-neighbor search over millions of items. This is what makes retrieval over a catalog of $10^8$ items feasible — and it is exactly why you *cannot* put a cross-feature (e.g., user×item interaction) into a two-tower model: that would break precomputation. Cross-features belong in the downstream **ranker**, not the retriever.
+
+### Training with In-Batch Negatives
+We only observe positives (clicks). Negatives come "for free" from the batch: for a batch of $B$ positive $(u_i, v_i)$ pairs, treat the other $B-1$ items as negatives for user $i$ — a softmax over the batch (same structure as InfoNCE/sampled softmax):
+$$
+\mathcal{L} = -\frac{1}{B}\sum_{i=1}^{B} \log \frac{\exp(s(u_i, v_i)/\tau)}{\sum_{j=1}^{B} \exp(s(u_i, v_j)/\tau)}
+$$
+
+* **Sampling-bias correction (logQ):** Popular items appear as in-batch negatives far more often than chance, so the model over-penalizes them. Correct the logits by subtracting $\log Q(i)$, the estimated sampling probability of item $i$: $s'(u, i) = s(u, i) - \log Q(i)$. Without this, two-tower models systematically suppress head items.
+
+---
+
+## Part XI: Multi-Task Learning in Ranking
+
+The ranker must often optimize **multiple, sometimes conflicting objectives** at once — e.g., P(click), P(watch-time), P(like), P(share). Training one model per objective is expensive and ignores shared structure.
+
+### Shared-Bottom (naive)
+One shared encoder feeds several task-specific heads. Problem: **negative transfer** — when tasks conflict (engagement vs. satisfaction), forcing them through one shared trunk hurts everyone.
+
+### MMoE (Multi-gate Mixture-of-Experts)
+Replace the single shared bottom with $N$ parallel **expert** networks. Each task $k$ has its own **gating network** (a softmax over experts) that learns a *task-specific* weighted combination of experts:
+$$
+y_k = h_k\!\Big(\sum_{i=1}^{N} g_k(x)_i \, f_i(x)\Big), \qquad g_k(x) = \text{softmax}(W_k x)
+$$
+Tasks that align share experts; tasks that conflict learn to route to different experts — softly partitioning capacity without hard separation.
+
+### PLE (Progressive Layered Extraction)
+MMoE lets all tasks pull on all experts, which can still entangle them. **PLE** explicitly splits experts into **shared** experts (available to all tasks) and **task-specific** experts (only that task's gate can use them), stacked over multiple layers. This cleaner separation further reduces negative transfer and is widely used in production (Tencent).
+
+> **Serving note:** multi-task scores are combined into a final ranking via a tuned formula, e.g. $\text{score} = P(\text{click})^{w_1} \cdot \mathbb{E}[\text{watch}]^{w_2} \cdot P(\text{like})^{w_3}$, where weights encode business value.
+
+---
+
+## Part XII: Graph-Based Recommendation (PinSage)
+
+User–item interactions form a bipartite **graph**; collaborative signal *is* graph structure. **Graph Neural Networks** exploit this directly by learning embeddings via neighbor aggregation.
+
+**GraphSAGE / PinSage** (Pinterest, 3B-node graph) computes an item embedding by recursively aggregating its neighbors:
+$$
+\mathbf{h}_v^{(k)} = \sigma\!\Big(W^{(k)} \cdot \text{CONCAT}\big(\mathbf{h}_v^{(k-1)},\; \text{AGG}\big(\{\mathbf{h}_u^{(k-1)} : u \in \mathcal{N}(v)\}\big)\big)\Big)
+$$
+* **Stacking $K$ layers** captures $K$-hop neighborhoods ("items co-pinned with items co-pinned with this one").
+* **Scaling trick:** the full graph is too big, so PinSage samples neighborhoods via **random walks**, weighting neighbors by visit counts (importance pooling) rather than using all edges.
+* **Payoff:** captures high-order connectivity that flat MF misses, and the learned embeddings feed straight into the same ANN retrieval stack.
+
+---
+
+## Part XIII: Exploration — Contextual Bandits
+
+Pure exploitation creates a **feedback loop / filter bubble**: you only ever log data on items you already show, so you never discover that a never-shown item is great. Bandits balance **exploit** (show known-good) vs. **explore** (gather info on uncertain items).
+
+### LinUCB (Upper Confidence Bound)
+Assume expected reward is linear in context: $\mathbb{E}[r \mid x] = x^\top \theta_a$. Pick the arm maximizing reward **plus an uncertainty bonus**:
+$$
+a_t = \arg\max_a \Big( x_t^\top \hat{\theta}_a + \alpha \sqrt{x_t^\top A_a^{-1} x_t} \Big)
+$$
+The second term is large for items with little data (high uncertainty) → "optimism under uncertainty" deliberately explores them. As an arm accumulates data, $A_a^{-1}$ shrinks and the bonus fades.
+
+### Thompson Sampling
+Maintain a **posterior** over each arm's parameters; each round, **sample** a parameter from the posterior and act greedily on the sample. Naturally explores in proportion to uncertainty, is simple to implement, and empirically excels in production. Both methods need **unbiased logging** (record the propensity of each shown item) to support offline evaluation.
+
+---
+
+## Part XIV: Counterfactual / Off-Policy Evaluation
+
+You have a new ranking policy $\pi_{\text{new}}$ but logged data was collected under the old policy $\pi_{\text{old}}$. Naively replaying is biased — the log only contains feedback on what $\pi_{\text{old}}$ chose to show.
+
+**Inverse Propensity Scoring (IPS):** reweight each logged outcome by the ratio of new-to-old probability of having taken that action:
+$$
+\hat{V}(\pi_{\text{new}}) = \frac{1}{N} \sum_{i=1}^{N} \frac{\pi_{\text{new}}(a_i \mid x_i)}{\pi_{\text{old}}(a_i \mid x_i)} \, r_i
+$$
+* **Unbiased** if $\pi_{\text{old}}$ had nonzero probability on every action $\pi_{\text{new}}$ might take (full support) and propensities were logged.
+* **High variance** when the policies disagree sharply (importance weights blow up). Fixes: **clip** the weights (capped IPS) or use the **Doubly Robust** estimator, which combines IPS with a learned reward model so it stays accurate if *either* the propensities *or* the reward model is correct.
+
+This is what lets teams pre-screen models offline before risking a live A/B test.
+
+---
+
+## Part XV: LLM-Based Recommendation
+
+LLMs inject world knowledge and natural-language reasoning into recsys:
+* **Semantic IDs:** represent items by quantized codes derived from content embeddings (RQ-VAE) so a generative model can **decode** the next item token-by-token, generalizing to cold items via content.
+* **Generative retrieval:** frame recommendation as sequence generation — "given a user's history, generate the next item ID" — rather than dot-product retrieval.
+* **Zero/few-shot & conversational recs:** prompt an LLM with user history and candidates to rank or explain, enabling natural-language preference elicitation ("something like X but cheaper").
+* **Reality check:** raw LLMs underperform tuned two-tower + GBDT rankers on pure accuracy and are far costlier to serve. The current sweet spot is **hybrid**: LLMs for cold-start, feature enrichment, and explanations; classical retrieval+ranking for the high-QPS core.
+
+---
+
+## Additional Interview Questions
+
+**Q: Why can a two-tower retrieval model not use user×item cross features, while the downstream ranker can?**
+
+The two-tower model's value is that item embeddings are **precomputed** and served via ANN — the user tower runs once and searches the index. A cross-feature would make each item's representation depend on the specific user, destroying precomputation and forcing a full scan over the catalog. The ranker only scores a few hundred retrieved candidates, so it can afford rich cross/interaction features (DCN, attention) per (user, item) pair.
+
+**Q: Your two-tower model systematically under-recommends popular items. What's the likely cause?**
+
+In-batch negative sampling makes popular items appear as negatives disproportionately often, so they're over-penalized. Apply **logQ correction** (subtract $\log Q(i)$ from logits) or **mixed negative sampling** (add uniformly sampled negatives alongside in-batch ones) to debias the gradient toward head items.
+
+**Q: When does MMoE help over a shared-bottom multi-task model, and when does PLE help over MMoE?**
+
+MMoE helps when tasks **partially conflict**: per-task gates route to different expert mixtures, avoiding the negative transfer that a single shared trunk forces. PLE helps when conflict is **strong**: it hard-separates task-specific experts from shared ones (stacked over layers), giving each task private capacity while still sharing common signal — further cutting negative transfer at the cost of more parameters.
+
+**Q: You want to ship a new ranker but can't run an A/B test yet. How do you estimate its online performance from logs?**
+
+Use **off-policy evaluation**. If propensities were logged, apply **IPS** (reweight logged rewards by $\pi_{\text{new}}/\pi_{\text{old}}$) for an unbiased estimate, clipping weights or using the **Doubly Robust** estimator to control variance. Validity requires that the logging policy had support over the new policy's actions — which is exactly why production systems inject bandit-style exploration into logging.
