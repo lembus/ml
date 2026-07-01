@@ -66,7 +66,7 @@ $$
 In supervised classification, maximizing the log-likelihood of the correct class labels is mathematically equivalent to minimizing the **Cross-Entropy Loss**:
 
 $$
-\operatorname*{argmax}_{\theta} \sum_{i=1}^{n} \log P(y_i \mid x_i; \theta) \iff \operatorname*{argmin}_{\theta} \left[ - \sum_{i=1}^{n} \log P(y_i \mid x_i; \theta) \right]
+\arg\max_{\theta} \sum_{i=1}^{n} \log P(y_i \mid x_i; \theta) \iff \arg\min_{\theta} \left[ - \sum_{i=1}^{n} \log P(y_i \mid x_i; \theta) \right]
 $$
 
 #### Theoretical Properties
@@ -164,13 +164,13 @@ $$
 Because the marginal probability of the data $P(D)$ does not depend on $\theta$, it acts as a normalization constant. We drop it for optimization:
 
 $$
-\hat{\theta}_{MAP} = \operatorname*{argmax}_{\theta} \left[ P(D \mid \theta) P(\theta) \right]
+\hat{\theta}_{MAP} = \arg\max_{\theta} \left[ P(D \mid \theta) P(\theta) \right]
 $$
 
 Transforming into log-space for numerical stability:
 
 $$
-\hat{\theta}_{MAP} = \operatorname*{argmax}_{\theta} \left[ \log P(D \mid \theta) + \log P(\theta) \right]
+\hat{\theta}_{MAP} = \arg\max_{\theta} \left[ \log P(D \mid \theta) + \log P(\theta) \right]
 $$
 
 #### Regularization Interpretation
@@ -330,7 +330,7 @@ If a distribution is defined by $k$ unknown parameters, we equate the first $k$ 
 A Gamma distribution is governed by shape $\alpha$ and rate $\beta$. We wish to estimate $\alpha$ and $\beta$ from a sample.
 
 * **Theoretical First Moment (Mean):** $E[X] = \frac{\alpha}{\beta}$
-* **Theoretical Second Moment:** $E[X^2] = \operatorname{Var}(X) + (E[X])^2 = \frac{\alpha}{\beta^2} + \frac{\alpha^2}{\beta^2} = \frac{\alpha(\alpha+1)}{\beta^2}$
+* **Theoretical Second Moment:** $E[X^2] = \text{Var}(X) + (E[X])^2 = \frac{\alpha}{\beta^2} + \frac{\alpha^2}{\beta^2} = \frac{\alpha(\alpha+1)}{\beta^2}$
 
 **Observed Dataset Metrics:** Sample Mean $\hat{m}_1 = 12$, Sample Second Moment $\hat{m}_2 = 168$.
 
@@ -367,8 +367,8 @@ $$
 
 | Estimator | Objective Function | Incorporates Prior? | Output Type | Asymptotic Variance | Primary Computational Bottleneck |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **MLE** | $\operatorname*{argmax}_\theta \sum \log P(x_i \mid \theta)$ | No | Point | Lowest (Efficient) | Non-convex loss landscapes |
-| **MAP** | $\operatorname*{argmax}_\theta \left[ \sum \log P(x_i \mid \theta) + \log P(\theta) \right]$ | Yes | Point | Low (Biased) | Hyperparameter tuning ($\lambda$) |
+| **MLE** | $\arg\max_\theta \sum \log P(x_i \mid \theta)$ | No | Point | Lowest (Efficient) | Non-convex loss landscapes |
+| **MAP** | $\arg\max_\theta \left[ \sum \log P(x_i \mid \theta) + \log P(\theta) \right]$ | Yes | Point | Low (Biased) | Hyperparameter tuning ($\lambda$) |
 | **Bayesian**| $\frac{P(D \mid \theta)P(\theta)}{\int P(D \mid \theta)P(\theta)d\theta}$ | Yes | Continuous Distribution | N/A (Full Spread) | Intractable denominator integrals |
 | **MoM** | System of Equations: $\hat{m}_k = E[X^k]$ | No | Point | Higher (Inefficient) | Algebraic solvability of high moments |
 
@@ -410,7 +410,7 @@ $$
 To maximize $\ell(w)$ with respect to $w$, we drop all terms that do not depend on $w$ and scale by positive constants:
 
 $$
-\operatorname*{argmax}_w \ell(w) = \operatorname*{argmin}_w \sum_{i=1}^{n} (y_i - w^T x_i)^2
+\arg\max_w \ell(w) = \arg\min_w \sum_{i=1}^{n} (y_i - w^T x_i)^2
 $$
 
 This final expression is the exact formulation of the Ordinary Least Squares objective function.
@@ -437,10 +437,10 @@ $$
 E\left[ \frac{1}{n}\sum_{i=1}^n (x_i - \hat{\mu})^2 \right] = E\left[ \frac{1}{n}\sum_{i=1}^n \left((x_i - \mu) - (\hat{\mu} - \mu)\right)^2 \right]
 $$
 
-Expanding the quadratic term and utilizing the properties $E[x_i - \mu] = 0$, $\operatorname{Var}(x_i) = \sigma^2$, and $\operatorname{Var}(\hat{\mu}) = \frac{\sigma^2}{n}$:
+Expanding the quadratic term and utilizing the properties $E[x_i - \mu] = 0$, $\text{Var}(x_i) = \sigma^2$, and $\text{Var}(\hat{\mu}) = \frac{\sigma^2}{n}$:
 
 $$
-E[\hat{\sigma}^2_{MLE}] = \frac{1}{n} \left[ \sum_{i=1}^n \operatorname{Var}(x_i) - n \operatorname{Var}(\hat{\mu}) \right] = \frac{1}{n} \left[ n\sigma^2 - n\left(\frac{\sigma^2}{n}\right) \right] = \frac{n-1}{n}\sigma^2
+E[\hat{\sigma}^2_{MLE}] = \frac{1}{n} \left[ \sum_{i=1}^n \text{Var}(x_i) - n \text{Var}(\hat{\mu}) \right] = \frac{1}{n} \left[ n\sigma^2 - n\left(\frac{\sigma^2}{n}\right) \right] = \frac{n-1}{n}\sigma^2
 $$
 
 Because $E[\hat{\sigma}^2_{MLE}] \neq \sigma^2$, **the MLE estimator is strictly biased downwards**. It systematically underestimates true variance because estimating the mean $\hat{\mu}$ consumes one degree of freedom from the data.

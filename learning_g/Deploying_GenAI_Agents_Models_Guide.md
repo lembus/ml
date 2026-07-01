@@ -59,17 +59,15 @@ In production systems, an agent acts similarly to an asynchronous microservice o
 
 ### 3. Mathematical Formulation
 
-In cyclic agentic workflows, execution must be strictly bounded to prevent infinite computational loops and unbounded API costs. Let $t$ represent the current iteration step within a discrete state space $S$. At each step, the model observes the accumulated history $H_t = \{q, a_1, o_1, \dots, a_{t-1}, o_{t-1}\}$ (where $q$ is the query, $a$ is an action, and $o$ is an observation) and computes a probability distribution over the action space $\mathcal{A} \cup \{	ext{STOP}\}$.
+In cyclic agentic workflows, execution must be strictly bounded to prevent infinite computational loops and unbounded API costs. Let $t$ represent the current iteration step within a discrete state space $S$. At each step, the model observes the accumulated history $H_t = \{q, a_1, o_1, \dots, a_{t-1}, o_{t-1}\}$ (where $q$ is the query, $a$ is an action, and $o$ is an observation) and computes a probability distribution over the action space $\mathcal{A} \cup \{\text{STOP}\}$.
 
-The execution terminates when the probability of emitting the termination token exceeds a defined confidence threshold $	au$, or when the step count reaches a hard upper bound $N_{\max}$:
+The execution terminates when the probability of emitting the termination token exceeds a defined confidence threshold $\tau$, or when the step count reaches a hard upper bound $N_{\max}$:
 
-$$\mathcal{T}(H_t) = \mathbb{I}\left[ P(a_t = 	ext{STOP} \mid H_t) > 	au 
-ight] \lor \mathbb{I}\left[ t \ge N_{\max} 
-ight]$$
+$$\mathcal{T}(H_t) = \mathbb{I}\left[ P(a_t = \text{STOP} \mid H_t) > \tau \right] \lor \mathbb{I}\left[ t \ge N_{\max} \right]$$
 
 Where:
-* $P(a_t = 	ext{STOP} \mid H_t)$ is the softmax probability assigned to the termination sequence given the accumulated context.
-* $	au \in (0, 1)$ governs the strictness of task completion certainty.
+* $P(a_t = \text{STOP} \mid H_t)$ is the softmax probability assigned to the termination sequence given the accumulated context.
+* $\tau \in (0, 1)$ governs the strictness of task completion certainty.
 * $\mathbb{I}[\cdot]$ is the indicator function evaluating to $1$ if the condition holds, triggering framework termination.
 
 ---
@@ -146,13 +144,13 @@ RAG architectures transform text generation into an information retrieval proble
 Dense retrieval relies on mapping queries $q$ and documents $d$ into a shared metric space $\mathbb{R}^m$ via an embedding encoder $E(\cdot)$. The semantic relevance score is defined by the cosine similarity:
 
 $$
-ext{Sim}(q, d) = rac{E(q) \cdot E(d)}{\|E(q)\|_2 \|E(d)\|_2}
+\text{Sim}(q, d) = \frac{E(q) \cdot E(d)}{\|E(q)\|_2 \|E(d)\|_2}
 $$
 
-To combine dense vector scores $s_{	ext{dense}}$ and sparse lexical rankings $s_{	ext{sparse}}$ without score normalization bias, **Reciprocal Rank Fusion (RRF)** computes an aggregated score based on rank positions $r(d \in R)$ within the respective candidate sets:
+To combine dense vector scores $s_{\text{dense}}$ and sparse lexical rankings $s_{\text{sparse}}$ without score normalization bias, **Reciprocal Rank Fusion (RRF)** computes an aggregated score based on rank positions $r(d \in R)$ within the respective candidate sets:
 
 $$
-S_{	ext{RRF}}(d) = \sum_{m \in \{	ext{dense}, 	ext{sparse}\}} rac{1}{k + r_m(d)}
+S_{\text{RRF}}(d) = \sum_{m \in \{\text{dense}, \text{sparse}\}} \frac{1}{k + r_m(d)}
 $$
 
 Where $k$ is a smoothing constant (typically set to 60) that mitigates the impact of high-ranking outliers in any single retrieval pipeline.
@@ -167,7 +165,7 @@ Where $k$ is a smoothing constant (typically set to 60) that mitigates the impac
 * **Embedding Stage:**
     * $E(q) = [0.12, -0.45, 0.88, \dots]$
     * $E(d_A) = [0.14, -0.40, 0.85, \dots]$
-* **Retrieval Stage (Cosine Sim):** $	ext{Sim}(q, d_A) = 0.91$. Document-A ranks in the top $K=5$ candidates.
+* **Retrieval Stage (Cosine Sim):** $\text{Sim}(q, d_A) = 0.91$. Document-A ranks in the top $K=5$ candidates.
 * **Cross-Encoder Re-ranking:** The string `[CLS] What is the return policy... [SEP] Hardware returns must be...` is processed. The output head scores relevance at $0.98$.
 * **Context Injection:** Prompt constructed as: `Context: {Document-A}. Question: {Query}. Answer:`
 
@@ -225,21 +223,17 @@ Serving economics dictate commercial viability. Implementing optimization framew
 
 ### 3. Mathematical Formulation
 
-Symmetric uniform quantization maps a continuous floating-point tensor $X \in [lpha, eta]$ to an integer representation $X_{	ext{int}} \in [-2^{b-1}, 2^{b-1}-1]$ using $b$ bits. The scaling factor $S$ represents the step size between adjacent quantized integers:
+Symmetric uniform quantization maps a continuous floating-point tensor $X \in [\alpha, \beta]$ to an integer representation $X_{\text{int}} \in [-2^{b-1}, 2^{b-1}-1]$ using $b$ bits. The scaling factor $S$ represents the step size between adjacent quantized integers:
 
 $$
-S = rac{\max(|X|)}{2^{b-1} - 1}
+S = \frac{\max(|X|)}{2^{b-1} - 1}
 $$
 
 The quantization and subsequent dequantization (reconstruction) operations are defined as:
 
-$$X_{	ext{int}} = 	ext{clip}\left( \left\lfloor rac{X}{S} 
-ight
-ceil, -2^{b-1}, 2^{b-1}-1 
-ight), \quad \hat{X} = X_{	ext{int}} \cdot S$$
+$$X_{\text{int}} = \text{clip}\left( \left\lfloor \frac{X}{S} \right\rceil, -2^{b-1}, 2^{b-1}-1 \right), \quad \hat{X} = X_{\text{int}} \cdot S$$
 
-Where $\lfloor \cdot 
-ceil$ denotes round-to-nearest-integer. The quantization error $\|X - \hat{X}\|$ introduces noise propagated through subsequent transformer layers.
+Where $\lfloor \cdot \rceil$ denotes round-to-nearest-integer. The quantization error $\|X - \hat{X}\|$ introduces noise propagated through subsequent transformer layers.
 
 ---
 
@@ -249,14 +243,13 @@ ceil$ denotes round-to-nearest-integer. The quantization error $\|X - \hat{X}\|$
 
 * Input FP16 Vector: $X = [-0.84, 0.12, 1.45, -0.33]$
 * **Compute Scale ($S$):**
-    $$\max(|X|) = 1.45 \implies S = rac{1.45}{127} pprox 0.011417$$
-* **Quantize Elements ($\lfloor X / S 
-ceil$):**
+    $$\max(|X|) = 1.45 \implies S = \frac{1.45}{127} \approx 0.011417$$
+* **Quantize Elements ($\lfloor X / S \rceil$):**
     * $-0.84 / 0.011417 = -73.57 \implies -74$
     * $0.12 / 0.011417 = 10.51 \implies 11$
     * $1.45 / 0.011417 = 127.0 \implies 127$
     * $-0.33 / 0.011417 = -28.90 \implies -29$
-* Quantized Tensor $X_{	ext{int}} = [-74, 11, 127, -29]$ (Stored in memory occupying 4 bytes instead of 8 bytes).
+* Quantized Tensor $X_{\text{int}} = [-74, 11, 127, -29]$ (Stored in memory occupying 4 bytes instead of 8 bytes).
 
 ---
 
@@ -312,15 +305,13 @@ Guardrails function as application-level Web Application Firewalls (WAFs) and da
 
 In NLI-based factual verification, let $C$ represent the retrieved context premise and $Y$ represent the generated hypothesis statement. The verification model computes probabilities across three discrete classification states:
 
-$$P_{	ext{NLI}}(Y \mid C) = 	ext{Softmax}\left( 	ext{MLP}(	ext{Encoder}(C \oplus Y)) 
-ight) \in \mathbb{R}^3$$
+$$P_{\text{NLI}}(Y \mid C) = \text{Softmax}\left( \text{MLP}(\text{Encoder}(C \oplus Y)) \right) \in \mathbb{R}^3$$
 
-Where the output dimension corresponds to $\{p_{	ext{entailment}}, p_{	ext{neutral}}, p_{	ext{contradiction}}\}$. The generation is verified as factually consistent if and only if the entailment probability exceeds a strict threshold:
+Where the output dimension corresponds to $\{p_{\text{entailment}}, p_{\text{neutral}}, p_{\text{contradiction}}\}$. The generation is verified as factually consistent if and only if the entailment probability exceeds a strict threshold:
 
-$$	ext{Faithful}(Y, C) = \mathbb{I}\left[ p_{	ext{entailment}} > \gamma \land p_{	ext{contradiction}} < \epsilon 
-ight]$$
+$$\text{Faithful}(Y, C) = \mathbb{I}\left[ p_{\text{entailment}} > \gamma \land p_{\text{contradiction}} < \epsilon \right]$$
 
-Where $\gamma 	o 1$ and $\epsilon 	o 0$ govern the tolerance for unsupported statements.
+Where $\gamma \to 1$ and $\epsilon \to 0$ govern the tolerance for unsupported statements.
 
 ---
 
@@ -331,11 +322,11 @@ Where $\gamma 	o 1$ and $\epsilon 	o 0$ govern the tolerance for unsupported sta
 * **Retrieved Context ($C$):** "The James Webb Space Telescope launched on December 25, 2021."
 * **Generated Output ($Y$):** "The James Webb Space Telescope was launched in July 2021."
 * **Input Formulation:** `[CLS] The James Webb Space Telescope launched on December 25, 2021. [SEP] The James Webb Space Telescope was launched in July 2021. [SEP]`
-* **Forward Pass Output ($P_{	ext{NLI}}$):**
-    * $p_{	ext{entailment}} = 0.02$
-    * $p_{	ext{neutral}} = 0.05$
-    * $p_{	ext{contradiction}} = 0.93$
-* **Policy Decision:** Since $p_{	ext{contradiction}} > \epsilon$, the output is intercepted. The system suppresses generation and triggers a fallback response: "I cannot confirm the launch date based on available records."
+* **Forward Pass Output ($P_{\text{NLI}}$):**
+    * $p_{\text{entailment}} = 0.02$
+    * $p_{\text{neutral}} = 0.05$
+    * $p_{\text{contradiction}} = 0.93$
+* **Policy Decision:** Since $p_{\text{contradiction}} > \epsilon$, the output is intercepted. The system suppresses generation and triggers a fallback response: "I cannot confirm the launch date based on available records."
 
 ---
 
@@ -381,7 +372,7 @@ The distinction lies in the allocation of Key ($K$) and Value ($V$) projection m
 
 ### 2. Mathematical Questions
 
-#### Q3: Derive the mathematical necessity for the scaling factor $rac{1}{\sqrt{d_k}}$ in standard scaled dot-product attention, explaining what assumption breaks without it.
+#### Q3: Derive the mathematical necessity for the scaling factor $\frac{1}{\sqrt{d_k}}$ in standard scaled dot-product attention, explaining what assumption breaks without it.
 **Answer:**
 Let $\mathbf{q}$ and $\mathbf{k}$ be query and key vectors of dimension $d_k$, where each individual component $q_i, k_i$ is modeled as an independent random variable with zero mean ($\mu = 0$) and unit variance ($\sigma^2 = 1$).
 
@@ -400,15 +391,15 @@ $$
 Since $q_i$ and $k_i$ are independent, the variance of their product is:
 
 $$
-ext{Var}(q_i k_i) = \mathbb{E}[q_i^2 k_i^2] - (\mathbb{E}[q_i k_i])^2 = \mathbb{E}[q_i^2]\mathbb{E}[k_i^2] - 0
+\text{Var}(q_i k_i) = \mathbb{E}[q_i^2 k_i^2] - (\mathbb{E}[q_i k_i])^2 = \mathbb{E}[q_i^2]\mathbb{E}[k_i^2] - 0
 $$
 
-Given $	ext{Var}(q_i) = \mathbb{E}[q_i^2] - (\mathbb{E}[q_i])^2 = 1 \implies \mathbb{E}[q_i^2] = 1$. Thus, $	ext{Var}(q_i k_i) = 1 \cdot 1 = 1$.
+Given $\text{Var}(q_i) = \mathbb{E}[q_i^2] - (\mathbb{E}[q_i])^2 = 1 \implies \mathbb{E}[q_i^2] = 1$. Thus, $\text{Var}(q_i k_i) = 1 \cdot 1 = 1$.
 
 Summing across all $d_k$ independent dimensions:
 
 $$
-ext{Var}(x) = \sum_{i=1}^{d_k} 	ext{Var}(q_i k_i) = d_k
+\text{Var}(x) = \sum_{i=1}^{d_k} \text{Var}(q_i k_i) = d_k
 $$
 
 Therefore, the standard deviation of the raw dot product grows proportional to $\sqrt{d_k}$. 
@@ -416,24 +407,23 @@ Therefore, the standard deviation of the raw dot product grows proportional to $
 *Broken Assumption:* For large embedding dimensions (e.g., $d_k = 128$), the variance becomes extremely large ($128$). When passed through the softmax function:
 
 $$
-ext{Softmax}(x)_i = rac{e^{x_i}}{\sum_j e^{x_j}}
+\text{Softmax}(x)_i = \frac{e^{x_i}}{\sum_j e^{x_j}}
 $$
 
-Large magnitude variance forces the softmax outputs to saturate near $0$ or $1$. In these saturated regions, the gradient of the softmax function approaches zero ($rac{\partial 	ext{Softmax}}{\partial x} pprox 0$). This causes severe **vanishing gradients** during backpropagation, halting network training. 
+Large magnitude variance forces the softmax outputs to saturate near $0$ or $1$. In these saturated regions, the gradient of the softmax function approaches zero ($\frac{\partial \text{Softmax}}{\partial x} \approx 0$). This causes severe **vanishing gradients** during backpropagation, halting network training. 
 
-Scaling the dot product by $rac{1}{\sqrt{d_k}}$ normalizes the variance back to unit scale:
-$$	ext{Var}\left( rac{\mathbf{q} \cdot \mathbf{k}}{\sqrt{d_k}} 
-ight) = rac{1}{d_k} 	ext{Var}(\mathbf{q} \cdot \mathbf{k}) = rac{d_k}{d_k} = 1$$
+Scaling the dot product by $\frac{1}{\sqrt{d_k}}$ normalizes the variance back to unit scale:
+$$\text{Var}\left( \frac{\mathbf{q} \cdot \mathbf{k}}{\sqrt{d_k}} \right) = \frac{1}{d_k} \text{Var}(\mathbf{q} \cdot \mathbf{k}) = \frac{d_k}{d_k} = 1$$
 This ensures gradients remain stable regardless of dimension scale.
 
 #### Q4: Explain why Post-Training Quantization (PTQ) to INT4 often introduces catastrophic perplexity degradation in large LLMs (>100B parameters) compared to smaller architectures (~7B parameters).
 **Answer:**
-This phenomenon is governed by the emergence of **systematic activation outliers** in over-parameterized networks. In LLMs scaling beyond ~30B parameters, specific hidden hidden dimensions (channels) begin consistently outputting activation magnitudes up to 100$	imes$ larger than the median distribution across all tokens. 
+This phenomenon is governed by the emergence of **systematic activation outliers** in over-parameterized networks. In LLMs scaling beyond ~30B parameters, specific hidden hidden dimensions (channels) begin consistently outputting activation magnitudes up to 100$\times$ larger than the median distribution across all tokens. 
 
 In standard uniform quantization, the scale $S$ is determined by the maximum absolute value within the tensor:
 
 $$
-S = rac{\max(|X|)}{2^{b-1} - 1}
+S = \frac{\max(|X|)}{2^{b-1} - 1}
 $$
 
 When an extreme outlier exists, $\max(|X|)$ becomes disproportionately large. For INT4 ($b=4$, range $[-8, 7]$), this forces the step size $S$ to expand dramatically. Consequently, the vast majority of normal, non-outlier weights or activations (which cluster tightly near zero) are quantized into a single bin (typically $0$ or $\pm 1$). 
@@ -483,7 +473,7 @@ Achieving both low latency (TTFT) and high throughput (TPS) on shared compute re
 *Root Cause Analysis:*
 This failure mode occurs when the execution feedback loop breaks the LLM's state transition logic. Specifically:
 1.  **Observation Saturation/Ambiguity:** The external tool executes successfully, but returns an observation that lacks actionable state-change confirmation (e.g., returning `File read successfully` without showing the specific line numbers or content the agent expected to find).
-2.  **Lack of Epistemic State Tracking:** Standard autoregressive models lack inherent memory of their internal reasoning trajectory. If the returned tool observation does not explicitly resolve the condition defined in the agent's prior *Thought*, the deterministic argmax decoding path will re-generate the exact same *Thought $	o$ Action* sequence indefinitely.
+2.  **Lack of Epistemic State Tracking:** Standard autoregressive models lack inherent memory of their internal reasoning trajectory. If the returned tool observation does not explicitly resolve the condition defined in the agent's prior *Thought*, the deterministic argmax decoding path will re-generate the exact same *Thought $\to$ Action* sequence indefinitely.
 
 *Engineering Remediation:*
 1.  **State Graph Enforced Loops (Structural Bounding):** Migrate from unconstrained ReAct prompts to a compiled state machine framework (e.g., LangGraph). Define explicit cyclic loop counters within the graph schema. If a specific node (Tool Call) is visited $>N$ consecutive times with identical input hashes, force a state transition to an `ErrorRecoveryNode`.
@@ -501,7 +491,7 @@ An off-the-shelf NLI model fails to map `hypertension` to `elevated blood pressu
 
 *Remediation Strategy:*
 1.  **Domain-Specific Contrastive Fine-Tuning:** Collect production query logs and curate a specialized clinical NLI validation dataset containing positive and negative domain entailment pairs. Fine-tune the auxiliary DeBERTa guardrail model explicitly on clinical text (e.g., utilizing MedNLI or PubMed abstracts) using a margin-ranking loss.
-2.  **Calibrate Decision Thresholds:** Rather than enforcing a rigid argmax classification ($p_{	ext{contradiction}} > p_{	ext{entailment}}$), implement a soft calibrated threshold $\gamma$ specific to the medical vertical.
+2.  **Calibrate Decision Thresholds:** Rather than enforcing a rigid argmax classification ($p_{\text{contradiction}} > p_{\text{entailment}}$), implement a soft calibrated threshold $\gamma$ specific to the medical vertical.
 3.  **LLM-as-a-Judge Fallback:** Implement a cascading guardrail topology. If the fast, low-cost NLI model flags a response with low confidence, route the Context-Output pair to a larger, highly aligned LLM (e.g., GPT-4o or Claude 3.5 Sonnet) configured with a strict clinical verification prompt acting as an asynchronous appellate judge before blocking user delivery.
 
 ---
@@ -512,7 +502,7 @@ An off-the-shelf NLI model fails to map `hypertension` to `elevated blood pressu
 **Answer:**
 Traditional serving systems allocate contiguous blocks of GPU VRAM for each individual request's KV cache statically at initialization. To prevent Out-Of-Memory (OOM) faults, the system must pre-allocate memory corresponding to the *maximum possible sequence length* $N_{\max}$ supported by the model (e.g., 8192 tokens), regardless of the actual output length generated by the user query. This causes severe **internal memory fragmentation**: if a request terminates after generating 50 tokens, the remaining 8142 tokens worth of allocated VRAM remain entirely unutilized and locked until session eviction, severely limiting batch size concurrency.
 
-**PagedAttention** decouples virtual memory addresses from physical GPU memory layout. It partitions the KV cache into small, fixed-size physical memory blocks (e.g., 16 tokens per block). Virtual sequence blocks are mapped to non-contiguous physical blocks dynamically via a centralized block table. Memory is allocated on-demand as generation proceeds. This virtually eliminates internal fragmentation (reducing waste to under 4%), allowing systems to maintain significantly higher concurrent batch sizes and increasing overall system throughput (TPS) by 2–4$	imes$.
+**PagedAttention** decouples virtual memory addresses from physical GPU memory layout. It partitions the KV cache into small, fixed-size physical memory blocks (e.g., 16 tokens per block). Virtual sequence blocks are mapped to non-contiguous physical blocks dynamically via a centralized block table. Memory is allocated on-demand as generation proceeds. This virtually eliminates internal fragmentation (reducing waste to under 4%), allowing systems to maintain significantly higher concurrent batch sizes and increasing overall system throughput (TPS) by 2–4$\times$.
 
 *Counter-Scenario (Where Contiguous Allocation Wins):*
 Traditional contiguous allocation outperforms PagedAttention in **ultra-low-concurrency, strictly latency-critical edge environments (Batch Size $B=1$) executing extremely short context lengths**. 
@@ -529,39 +519,35 @@ During a speculative iteration, $\mathcal{M}_d$ generates $K$ candidate tokens s
 
 For each sequential token $i \in [1, K]$, the system samples a random uniform variable $u \sim U(0, 1)$ and applies the following acceptance criterion:
 
-$$	ext{Accept}(x_i) = \mathbb{I}\left[ u \le \min\left(1, rac{p(x_i)}{q(x_i)}
-ight) 
-ight]$$
+$$\text{Accept}(x_i) = \mathbb{I}\left[ u \le \min\left(1, \frac{p(x_i)}{q(x_i)}\right) \right]$$
 
 *Proof of Equivalence:*
-We analyze the effective probability $	ilde{P}(x)$ of generating token $x$ under this protocol. Token $x$ can be produced via two distinct mutually exclusive pathways:
+We analyze the effective probability $\tilde{P}(x)$ of generating token $x$ under this protocol. Token $x$ can be produced via two distinct mutually exclusive pathways:
 
 1.  **Direct Acceptance:** Token $x$ is proposed by the draft model and accepted.
-    $$P_{	ext{accept}}(x) = q(x) \cdot \min\left(1, rac{p(x)}{q(x)}
-ight) = \min(q(x), p(x))$$
+    $$P_{\text{accept}}(x) = q(x) \cdot \min\left(1, \frac{p(x)}{q(x)}\right) = \min(q(x), p(x))$$
 
 2.  **Rejection Recovery:** Token $x'$ was proposed by the draft model, rejected, and the target model resamples token $x$ from an adjusted residual distribution $p'(x)$.
     The total probability of rejecting *any* draft token is:
-    $$P_{	ext{reject}} = \sum_{x'} q(x') \max\left(0, 1 - rac{p(x')}{q(x')}
-ight) = \sum_{x'} \max(0, q(x') - p(x'))$$
+    $$P_{\text{reject}} = \sum_{x'} q(x') \max\left(0, 1 - \frac{p(x')}{q(x')}\right) = \sum_{x'} \max(0, q(x') - p(x'))$$
     When rejection occurs, the system samples a replacement token $x$ from the normalized adjusted target distribution:
-    $$p'(x) = rac{\max(0, p(x) - q(x))}{\sum_{x'} \max(0, p(x') - q(x'))}$$
+    $$p'(x) = \frac{\max(0, p(x) - q(x))}{\sum_{x'} \max(0, p(x') - q(x'))}$$
     Noting that $\sum_{x'} (p(x') - q(x')) = 1 - 1 = 0 \implies \sum_{x'} \max(0, p(x') - q(x')) = \sum_{x'} \max(0, q(x') - p(x'))$. 
-    Therefore, the denominator of $p'(x)$ exactly equals $P_{	ext{reject}}$.
+    Therefore, the denominator of $p'(x)$ exactly equals $P_{\text{reject}}$.
     The probability of producing $x$ via rejection recovery is:
-    $$P_{	ext{recovery}}(x) = P_{	ext{reject}} \cdot p'(x) = \max(0, p(x) - q(x))$$
+    $$P_{\text{recovery}}(x) = P_{\text{reject}} \cdot p'(x) = \max(0, p(x) - q(x))$$
 
-Combining both pathways, the total effective output distribution $	ilde{P}(x)$ is:
+Combining both pathways, the total effective output distribution $\tilde{P}(x)$ is:
 
 $$
-ilde{P}(x) = P_{	ext{accept}}(x) + P_{	ext{recovery}}(x) = \min(q(x), p(x)) + \max(0, p(x) - q(x))
+\tilde{P}(x) = P_{\text{accept}}(x) + P_{\text{recovery}}(x) = \min(q(x), p(x)) + \max(0, p(x) - q(x))
 $$
 
 By algebraic definition, for any two real numbers $a$ and $b$, $\min(a, b) + \max(0, b - a) \equiv b$. Setting $a = q(x)$ and $b = p(x)$:
 
 $$
-ilde{P}(x) \equiv p(x)
+\tilde{P}(x) \equiv p(x)
 $$
 
 Thus, the speculative decoding output distribution strictly equals the target model distribution $p(x)$ analytically. If the draft model is poorly aligned ($q 
-otpprox p$), the rejection rate approaches 1, and generation speed degrades back to standard autoregressive decoding speeds, but structural accuracy never deviates.
+ot\approx p$), the rejection rate approaches 1, and generation speed degrades back to standard autoregressive decoding speeds, but structural accuracy never deviates.

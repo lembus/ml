@@ -96,19 +96,19 @@ Let $\hat{y}$ be the predicted class label and $P(\hat{y}|x)$ be the probability
 1. **Least Confidence:**
    Select $x$ that minimizes the probability of the most likely class.
    
-   $$x^*_{LC} = \operatorname{argmin}_x \left( \max_{\hat{y}} P(\hat{y}|x) \right)$$
+   $$x^*_{LC} = \arg\min_x \left( \max_{\hat{y}} P(\hat{y}|x) \right)$$
 
 2. **Margin Sampling:**
    Select $x$ with the smallest difference between the top two most probable classes ($\hat{y}_1$ and $\hat{y}_2$).
    
-   $$x^*_{M} = \operatorname{argmin}_x \left( P(\hat{y}_1|x) - P(\hat{y}_2|x) \right)$$
+   $$x^*_{M} = \arg\min_x \left( P(\hat{y}_1|x) - P(\hat{y}_2|x) \right)$$
    
    *Intuition:* If the margin is small, the model is "confused" between two choices.
 
 3. **Entropy Sampling:**
    Select $x$ with the highest predictive entropy (maximum confusion across all classes).
    
-   $$x^*_{E} = \operatorname{argmax}_x \left( - \sum_{i} P(y_i|x) \log P(y_i|x) \right)$$
+   $$x^*_{E} = \arg\max_x \left( - \sum_{i} P(y_i|x) \log P(y_i|x) \right)$$
 
 ---
 

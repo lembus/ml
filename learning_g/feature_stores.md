@@ -180,7 +180,7 @@ A Feature Store prevents this through **unified feature definitions**. A single 
 The target feature record $f^*$ is selected from the subset of feature records matching entity $e$:
 
 $$
-f^* = \operatorname*{arg\,max}_{f \in F_e} \{ t_f \mid t_f \le t_{\text{obs}} \}
+f^* = \arg\max_{f \in F_e} \{ t_f \mid t_f \le t_{\text{obs}} \}
 $$
 
 Where $F_e = \{ f \in F \mid f.\text{entity} = e \}$.

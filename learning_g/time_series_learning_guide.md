@@ -71,10 +71,10 @@ $$
 #### 2. Moving Average Model of Order $q$ — MA(q)
 
 $$
-y_t = c + \epsilon_t + 	heta_1 \epsilon_{t-1} + 	heta_2 \epsilon_{t-2} + \dots + 	heta_q \epsilon_{t-q}
+y_t = c + \epsilon_t + \theta_1 \epsilon_{t-1} + \theta_2 \epsilon_{t-2} + \dots + \theta_q \epsilon_{t-q}
 $$
 
-* $	heta_1, \dots, 	heta_q$: Coefficients applied to past unobserved shocks (errors).
+* $\theta_1, \dots, \theta_q$: Coefficients applied to past unobserved shocks (errors).
 
 #### 3. Integration / Differencing ($d$)
 To stabilize the mean, first-order differencing ($d=1$) is defined as:
@@ -86,35 +86,34 @@ $$
 #### Full ARIMA(p, d, q) Compact Formulation
 
 $$
-(1 - \sum_{i=1}^p \phi_i B^i)(1 - B)^d y_t = c + (1 + \sum_{j=1}^q 	heta_j B^j)\epsilon_t
+(1 - \sum_{i=1}^p \phi_i B^i)(1 - B)^d y_t = c + (1 + \sum_{j=1}^q \theta_j B^j)\epsilon_t
 $$
 
 ### C. Exponential Smoothing (Holt-Winters Additive Method)
 For a series exhibiting both trend and seasonality with period $m$, the system updates three state equations:
 
 $$
-ext{Level:} \quad l_t = lpha (y_t - s_{t-m}) + (1 - lpha)(l_{t-1} + b_{t-1})
+\text{Level:} \quad l_t = \alpha (y_t - s_{t-m}) + (1 - \alpha)(l_{t-1} + b_{t-1})
 $$
 
 $$
-ext{Trend:} \quad b_t = eta (l_t - l_{t-1}) + (1 - eta)b_{t-1}
+\text{Trend:} \quad b_t = \beta (l_t - l_{t-1}) + (1 - \beta)b_{t-1}
 $$
 
 $$
-ext{Seasonal:} \quad s_t = \gamma (y_t - l_{t-1} - b_{t-1}) + (1 - \gamma)s_{t-m}
+\text{Seasonal:} \quad s_t = \gamma (y_t - l_{t-1} - b_{t-1}) + (1 - \gamma)s_{t-m}
 $$
 
 $$
-ext{Forecast:} \quad \hat{y}_{t+h|t} = l_t + h b_t + s_{t+h-m}
+\text{Forecast:} \quad \hat{y}_{t+h|t} = l_t + h b_t + s_{t+h-m}
 $$
 
-* $lpha, eta, \gamma \in [0, 1]$: Smoothing parameters controlling the rate of state decay.
+* $\alpha, \beta, \gamma \in [0, 1]$: Smoothing parameters controlling the rate of state decay.
 
 ### D. Deep Learning: Scaled Dot-Product Attention
 In Transformer-based forecasting models (e.g., Temporal Fusion Transformer, Informer), temporal contexts are mapped into Queries ($Q$), Keys ($K$), and Values ($V$).
 
-$$	ext{Attention}(Q, K, V) = 	ext{softmax}\left(rac{QK^T}{\sqrt{d_k}}
-ight)V$$
+$$\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V$$
 
 * $d_k$: The dimension of the key vectors, used as a scaling factor to prevent vanishing gradients in the softmax function during training.
 
@@ -167,19 +166,16 @@ When applying tree-based models (e.g., XGBoost, LightGBM) to time series, raw se
 1. **Lag Features:** Values at previous time steps ($y_{t-1}, y_{t-7}, y_{t-365}$).
 2. **Rolling Window Statistics:** Moving averages, standard deviations, min, and max over specified window sizes (e.g., 7-day rolling mean) to capture localized momentum and volatility.
 3. **Cyclical Calendar Encoding:** Standard integer encoding for temporal cycles (e.g., month 1 to 12) implies false continuity jumps between December (12) and January (1). Continuous representations use trigonometric transformations:
-   $$x_{\sin} = \sin\left(rac{2\pi t}{T}
-ight), \quad x_{\cos} = \cos\left(rac{2\pi t}{T}
-ight)$$
+   $$x_{\sin} = \sin\left(\frac{2\pi t}{T}\right), \quad x_{\cos} = \cos\left(\frac{2\pi t}{T}\right)$$
    *(where $T$ is the period, such as 12 for months or 24 for hours).*
 
 ### B. Evaluation Metrics
-* **MAE (Mean Absolute Error):** $rac{1}{n}\sum |y_t - \hat{y}_t|$. Robust to outliers, easily interpretable in target units.
-* **MAPE (Mean Absolute Percentage Error):** $rac{100}{n}\sum \left|rac{y_t - \hat{y}_t}{y_t}
-ight|$. Scale-independent percentage error. **Major Pitfall:** Asymmetric penalty (heavily penalizes over-forecasting) and approaches infinity as $y_t 	o 0$.
+* **MAE (Mean Absolute Error):** $\frac{1}{n}\sum |y_t - \hat{y}_t|$. Robust to outliers, easily interpretable in target units.
+* **MAPE (Mean Absolute Percentage Error):** $\frac{100}{n}\sum \left|\frac{y_t - \hat{y}_t}{y_t}\right|$. Scale-independent percentage error. **Major Pitfall:** Asymmetric penalty (heavily penalizes over-forecasting) and approaches infinity as $y_t \to 0$.
 * **MASE (Mean Absolute Scaled Error):** Scaled relative to the in-sample MAE of a naive random walk forecast:
-  $$	ext{MASE} = rac{rac{1}{h}\sum_{t=n+1}^{n+h} |y_t - \hat{y}_t|}{rac{1}{n-1}\sum_{t=2}^n |y_t - y_{t-1}|}$$
-  * $	ext{MASE} < 1$: Model outperforms a naive baseline forecast.
-  * $	ext{MASE} > 1$: Model performs worse than simply carrying forward the last known value.
+  $$\text{MASE} = \frac{\frac{1}{h}\sum_{t=n+1}^{n+h} |y_t - \hat{y}_t|}{\frac{1}{n-1}\sum_{t=2}^n |y_t - y_{t-1}|}$$
+  * $\text{MASE} < 1$: Model outperforms a naive baseline forecast.
+  * $\text{MASE} > 1$: Model performs worse than simply carrying forward the last known value.
 
 ### C. Architectural Trade-offs & Selection Strategy
 
@@ -235,7 +231,7 @@ Let $y_t = c + \phi y_{t-1} + \epsilon_t$, where $\epsilon_t \sim \mathcal{N}(0,
 Taking the expectation of both sides under stationarity ($\mathbb{E}[y_t] = \mathbb{E}[y_{t-1}] = \mu$):
 
 $$
-\mu = c + \phi \mu + \mathbb{E}[\epsilon_t] \implies \mu(1 - \phi) = c \implies \mu = rac{c}{1 - \phi}
+\mu = c + \phi \mu + \mathbb{E}[\epsilon_t] \implies \mu(1 - \phi) = c \implies \mu = \frac{c}{1 - \phi}
 $$
 
 **Variance ($\gamma_0$):**
@@ -249,14 +245,13 @@ $$
 Since $\epsilon_t$ is independent of past observations, the cross-term is $0$:
 
 $$
-\gamma_0 = \phi^2 \gamma_0 + \sigma^2 \implies \gamma_0 = rac{\sigma^2}{1 - \phi^2}
+\gamma_0 = \phi^2 \gamma_0 + \sigma^2 \implies \gamma_0 = \frac{\sigma^2}{1 - \phi^2}
 $$
 
 #### Q4: Why do standard Recurrent Neural Networks exhibit vanishing gradients over long temporal sequences?
 **Answer:**
-Let hidden state $h_t = 	anh(W_{hh}h_{t-1} + W_{xh}x_t)$. The gradient of the loss $\mathcal{L}$ at time $T$ with respect to hidden state at time $t \ll T$ involves the Jacobian chain product:
-$$rac{\partial \mathcal{L}}{\partial h_t} = rac{\partial \mathcal{L}}{\partial h_T} \prod_{k=t+1}^T rac{\partial h_k}{\partial h_{k-1}} = rac{\partial \mathcal{L}}{\partial h_T} \prod_{k=t+1}^T \left( 	ext{diag}(1 - h_k^2) W_{hh}^T 
-ight)$$
+Let hidden state $h_t = \tanh(W_{hh}h_{t-1} + W_{xh}x_t)$. The gradient of the loss $\mathcal{L}$ at time $T$ with respect to hidden state at time $t \ll T$ involves the Jacobian chain product:
+$$\frac{\partial \mathcal{L}}{\partial h_t} = \frac{\partial \mathcal{L}}{\partial h_T} \prod_{k=t+1}^T \frac{\partial h_k}{\partial h_{k-1}} = \frac{\partial \mathcal{L}}{\partial h_T} \prod_{k=t+1}^T \left( \text{diag}(1 - h_k^2) W_{hh}^T \right)$$
 If the singular values of the weight matrix $W_{hh}$ are strictly less than $1$, repeated matrix multiplication across long horizons ($T - t$) causes the gradient norm to decay exponentially toward zero.
 
 ---
@@ -265,19 +260,17 @@ If the singular values of the weight matrix $W_{hh}$ are strictly less than $1$,
 
 #### Q5: Design a forecasting system for 100,000 retail product SKUs across 500 stores. Intermittent (zero-inflated) demand is prevalent.
 **Answer:**
-1. **Model Architecture:** Deploy a **Global Gradient Boosted Decision Tree (LightGBM)** or **Deep Autoregressive Network (DeepAR)** trained conjointly across all store-SKU combinations rather than maintaining $5 	imes 10^7$ independent local models.
+1. **Model Architecture:** Deploy a **Global Gradient Boosted Decision Tree (LightGBM)** or **Deep Autoregressive Network (DeepAR)** trained conjointly across all store-SKU combinations rather than maintaining $5 \times 10^7$ independent local models.
 2. **Handling Intermittency:** Standard MSE/MAE models will predict fractional values (e.g., 0.15 units/day). Switch optimization objective to **Tweedie Deviance Loss** (which models compound Poisson-Gamma distributions natively handling zero-mass outcomes) or use two-stage **Croston’s Method** (separate models for non-zero demand probability and non-zero demand volume).
 3. **Feature Engineering:** Inject hierarchical cross-sectional categorical embeddings (Store ID, Department, SKU category), rolling historical aggregate sales, promotional flags, and price elasticity lags.
 
 #### Q6: How do you evaluate probabilistic forecasts when business operations require quantifying inventory stockout risk?
 **Answer:**
 Point estimates (mean/median predictions) fail to capture variance risk. We evaluate distribution predictions using:
-* **Quantile Loss (Pinball Loss):** To prevent stockouts, operations may target the 95th demand percentile ($	au = 0.95$):
-  $$\mathcal{L}_	au(y, \hat{y}) = \max\left( 	au(y - \hat{y}), (	au - 1)(y - \hat{y}) 
-ight)$$
+* **Quantile Loss (Pinball Loss):** To prevent stockouts, operations may target the 95th demand percentile ($\tau = 0.95$):
+  $$\mathcal{L}_\tau(y, \hat{y}) = \max\left( \tau(y - \hat{y}), (\tau - 1)(y - \hat{y}) \right)$$
 * **Continuous Ranked Probability Score (CRPS):** Generalizes Mean Absolute Error to full predictive cumulative distribution functions ($F$), measuring the integrated squared difference between the forecast distribution and the empirical step function:
-  $$	ext{CRPS}(F, y) = \int_{-\infty}^{\infty} \left( F(z) - \mathbb{I}\{y \le z\} 
-ight)^2 dz$$
+  $$\text{CRPS}(F, y) = \int_{-\infty}^{\infty} \left( F(z) - \mathbb{I}\{y \le z\} \right)^2 dz$$
 
 ---
 
@@ -289,7 +282,7 @@ ight)^2 dz$$
 * **Root Cause 2 (Feature Representation):** The model lacks explicit structural flags indicating anomalous calendar events, forcing it to treat historical holiday spikes as transient unrepeatable noise.
 * **Remediation:** Introduce explicit binary indicator features (`is_black_friday`), deterministic countdown variables (`days_until_christmas`), and switch optimization to asymmetric quantile regression loss functions.
 
-#### Q8: A newly deployed forecasting model exhibits excellent offline validation metrics. In production, its forecasts appear shifted chronologically by exactly one step ($\hat{y}_{t+1} pprox y_t$). What went wrong?
+#### Q8: A newly deployed forecasting model exhibits excellent offline validation metrics. In production, its forecasts appear shifted chronologically by exactly one step ($\hat{y}_{t+1} \approx y_t$). What went wrong?
 **Answer:**
 This is classic **Persistence Degradation** (or the "Lag-1 Shadowing" phenomenon). The model has learned that the autoregressive signal ($y_t$) is overwhelmingly strong compared to exogenous covariates. When optimizing standard regression loss, the mathematical path of least resistance to minimize average error on highly autocorrelated series is simply echoing the most recent observation. 
 * **Remediation:** Verify predictive power of exogenous variables via SHAP values. Transform the target variable by **differencing** ($\Delta y_{t+1} = y_{t+1} - y_t$), forcing the model architecture to predict structural *changes* rather than absolute levels.

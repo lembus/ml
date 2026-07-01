@@ -48,7 +48,7 @@ If the **i.i.d.** assumption is violated (e.g., **Covariate Shift**), minimizing
 The ERM principle states that since we cannot minimize $R(h)$ directly, we pick the hypothesis $h_{\text{ERM}}$ that minimizes $\hat{R}_S(h)$:
 
 $$
-h_{\text{ERM}} = \underset{h \in \mathcal{H}}{\operatorname{argmin}} \ \hat{R}_S(h)
+h_{\text{ERM}} = \underset{h \in \mathcal{H}}{\arg\min} \ \hat{R}_S(h)
 $$
 
 **Consistency:** We say ERM is *consistent* if, as the number of samples $n \to \infty$, the empirical risk converges to the true risk: $\hat{R}_S(h) \to R(h)$.
@@ -285,7 +285,7 @@ $$
 *Key Takeaway for interviewers:* To cut the generalization error bound in half ($\epsilon \to \epsilon/2$), you need **$4\times$ the amount of training data**.
 
 #### Q4: State and prove the Bias-Variance Decomposition for the Mean Squared Error (MSE) estimator.
-**Answer:** Let $y = f(x) + \epsilon$, where $\mathbb{E}[\epsilon]=0$ and $\operatorname{Var}(\epsilon)=\sigma^2$. Let $\hat{f}(x)$ be our trained estimator trained on dataset $S$. We want to decompose the expected test error at a fixed test point $x$:
+**Answer:** Let $y = f(x) + \epsilon$, where $\mathbb{E}[\epsilon]=0$ and $\text{Var}(\epsilon)=\sigma^2$. Let $\hat{f}(x)$ be our trained estimator trained on dataset $S$. We want to decompose the expected test error at a fixed test point $x$:
 
 $$
 \text{Err}(x) = \mathbb{E}\left[ \left( y - \hat{f}(x) \right)^2 \right]
@@ -303,7 +303,7 @@ $$
 \text{Err}(x) = \mathbb{E}\left[ \left( f(x) - \hat{f}(x) \right)^2 \right] + 2\mathbb{E}\left[ \epsilon \left( f(x) - \hat{f}(x) \right) \right] + \mathbb{E}[\epsilon^2]
 $$
 
-Since $\epsilon$ is independent of $\hat{f}$ and $\mathbb{E}[\epsilon]=0$, the middle cross-term vanishes. $\mathbb{E}[\epsilon^2] = \operatorname{Var}(\epsilon) + (\mathbb{E}[\epsilon])^2 = \sigma^2$. Now focus on the first term by adding and subtracting the expectation $\mathbb{E}[\hat{f}(x)]$:
+Since $\epsilon$ is independent of $\hat{f}$ and $\mathbb{E}[\epsilon]=0$, the middle cross-term vanishes. $\mathbb{E}[\epsilon^2] = \text{Var}(\epsilon) + (\mathbb{E}[\epsilon])^2 = \sigma^2$. Now focus on the first term by adding and subtracting the expectation $\mathbb{E}[\hat{f}(x)]$:
 
 $$
 \mathbb{E}\left[ \left( f(x) - \mathbb{E}[\hat{f}(x)] + \mathbb{E}[\hat{f}(x)] - \hat{f}(x) \right)^2 \right]
@@ -318,7 +318,7 @@ $$
 The cross term vanishes again because $\mathbb{E}[\mathbb{E}[\hat{f}(x)] - \hat{f}(x)] = \mathbb{E}[\hat{f}(x)] - \mathbb{E}[\hat{f}(x)] = 0$. Combining all parts:
 
 $$
-\text{Err}(x) = \underbrace{\left( \mathbb{E}[\hat{f}(x)] - f(x) \right)^2}_{\text{Bias}^2\left(\hat{f}(x)\right)} + \underbrace{\mathbb{E}\left[ \left( \hat{f}(x) - \mathbb{E}[\hat{f}(x)] \right)^2 \right]}_{\operatorname{Var}\left(\hat{f}(x)\right)} + \underbrace{\sigma^2}_{\text{Irreducible Noise}}
+\text{Err}(x) = \underbrace{\left( \mathbb{E}[\hat{f}(x)] - f(x) \right)^2}_{\text{Bias}^2\left(\hat{f}(x)\right)} + \underbrace{\mathbb{E}\left[ \left( \hat{f}(x) - \mathbb{E}[\hat{f}(x)] \right)^2 \right]}_{\text{Var}\left(\hat{f}(x)\right)} + \underbrace{\sigma^2}_{\text{Irreducible Noise}}
 $$
 
 ---
@@ -360,4 +360,4 @@ Mathematically, the VC Dimension of an unconstrained RBF SVM is **infinite** ($d
 **Answer:** *Theoretically* yes, *practically* no. Computing the empirical Rademacher complexity $\hat{\mathfrak{R}}_S(\mathcal{H})$ requires finding the supremum $\sup_{h \in \mathcal{H}} \sum \sigma_i h(x_i)$ over random noise vectors $\boldsymbol{\sigma}$. For a deep neural network, finding the exact network weights $h$ that maximally fit arbitrary random coin flips is itself a non-convex NP-hard optimization problem. Furthermore, because deep networks *can* fit random noise perfectly, empirical Rademacher bounds evaluated naively on deep nets still evaluate close to $1$, yielding vacuous (useless) generalization guarantees.
 
 #### Q10: "In Structural Risk Minimization, how do we formally choose the optimal complexity tier $k$ without data leakage?"
-**Answer:** By employing a strict **hold-out validation split** or **$k$-fold cross-validation** that acts as an unbiased estimator of the True Risk $R(h)$. The training split computes $h_k^* = \operatorname{argmin}_{h \in \mathcal{H}_k} \hat{R}_{S_{\text{train}}}(h)$ for each tier $k$. The hold-out validation set $S_{\text{val}}$ evaluates $\hat{R}_{S_{\text{val}}}(h_k^*)$. The index $k$ that minimizes the validation risk is selected. To maintain strict theoretical integrity, the final reported generalization gap must then be measured on a *third* untouched Test Set $S_{\text{test}}$.
+**Answer:** By employing a strict **hold-out validation split** or **$k$-fold cross-validation** that acts as an unbiased estimator of the True Risk $R(h)$. The training split computes $h_k^* = \arg\min_{h \in \mathcal{H}_k} \hat{R}_{S_{\text{train}}}(h)$ for each tier $k$. The hold-out validation set $S_{\text{val}}$ evaluates $\hat{R}_{S_{\text{val}}}(h_k^*)$. The index $k$ that minimizes the validation risk is selected. To maintain strict theoretical integrity, the final reported generalization gap must then be measured on a *third* untouched Test Set $S_{\text{test}}$.
