@@ -301,17 +301,32 @@ Frameworks execute ops one-at-a-time with Python overhead. **Graph compilers** (
 
 ## Inference Serving Frameworks
 
-A model file is not a service. Dedicated inference servers add the production machinery you'd otherwise rebuild by hand:
+A model file is not a service. Dedicated inference servers add the production machinery you'd otherwise rebuild by hand — request scheduling, batching, multi-model hosting, versioning, health/metrics endpoints, and GPU memory management.
 
-* **NVIDIA Triton Inference Server:** Multi-framework (TensorRT, ONNX, PyTorch, TF), **dynamic batching**, concurrent model execution, and model ensembles. The standard for high-throughput GPU serving.
-* **TorchServe / TensorFlow Serving:** Framework-native servers with versioning, batching, and metrics endpoints.
-* **vLLM / TGI (LLM-specific):** Built around **PagedAttention** and **continuous batching** to serve LLMs efficiently — they manage the KV-cache as paged memory and dynamically add/evict requests from the running batch.
+### NVIDIA Triton Inference Server
+The general-purpose standard for high-throughput serving. Its capabilities are worth understanding concretely:
+* **Model repository & versioning:** models live in a versioned directory; Triton hot-loads/unloads versions and can serve several versions of one model simultaneously (enabling in-place canary/A-B at the server layer).
+* **Concurrent model execution (instance groups):** you configure $N$ **instances** of a model per GPU. Triton runs them in parallel CUDA streams, so a small model that under-utilizes a GPU can host several copies to saturate it, while requests queue per-instance.
+* **Backends:** one server runs TensorRT, ONNX Runtime, PyTorch, TensorFlow, and Python backends side by side, so a mixed fleet is one deployment.
+* **Model ensembles / business logic scripting:** wire preprocess → model → postprocess (or a DAG of models) *inside* the server, avoiding network hops between steps.
+* **Scheduler:** a per-model queue feeds the **dynamic batcher** (below); the **sequence batcher** additionally routes stateful requests from the same session to the same instance.
+
+### LLM-Specific Servers (vLLM / TGI) and PagedAttention
+Autoregressive LLM serving is dominated by one resource: the **KV-cache**. Its two pathologies are what these servers fix:
+1. **Unknown output length** → you don't know how much cache a request needs, so classic serving *pre-allocates* for the max sequence length, wasting most of it.
+2. **Fragmentation** → variable-length caches leave unusable gaps in GPU memory (internal + external fragmentation), so a naïve allocator wastes 60–80% of KV memory.
+
+**PagedAttention** (the core of vLLM) borrows the operating-system **virtual-memory** idea. The KV-cache is split into fixed-size **blocks** (e.g., 16 tokens each). A per-sequence **block table** maps logical token positions to physically non-contiguous blocks, exactly like OS page tables:
+* Memory is allocated **on demand**, one block at a time as generation proceeds — no pre-allocation waste; fragmentation drops to under one block per sequence.
+* Blocks can be **shared** across sequences via copy-on-write — so parallel samples, beam search, or a shared system prompt reuse the same physical KV blocks until they diverge, cutting memory for these cases dramatically.
+
+The freed memory translates directly into a **larger batch** (more sequences resident at once), and larger batches are what turn the memory-bandwidth-bound decode into higher throughput — the source of vLLM's oft-cited multi-× gains.
 
 ### Dynamic Batching
-GPUs are throughput devices: processing 32 requests together costs barely more than processing 1. A dynamic batcher holds incoming requests for a tiny window (e.g., 5 ms) to assemble a batch, trading a small latency increase for a large throughput gain. **The core tension:** larger batches → higher throughput but higher tail latency. The max batch size and queue-wait timeout are tuned directly against your p99 latency SLA.
+GPUs are throughput devices: processing 32 requests together costs barely more than processing 1, because weights are streamed from VRAM once and reused across the batch. A dynamic batcher holds incoming requests for a tiny window (e.g., 5 ms) to assemble a batch, trading a small latency increase for a large throughput gain. **The core tension:** larger batches → higher throughput but higher tail latency (both from the queue wait and the longer compute). The **max batch size** (cap compute so worst case fits the SLA) and **queue-wait timeout** (short enough that a lone request isn't starved under low load) are tuned directly against your p99.
 
 ### Continuous Batching (for autoregressive LLMs)
-Static batching wastes the GPU when sequences in a batch finish at different times (short generations idle while waiting for the longest). **Continuous (in-flight) batching** evicts finished sequences and admits new requests every decoding step, keeping the GPU saturated — often a 2–4× throughput gain for LLM serving.
+Static batching wastes the GPU when sequences in a batch finish at different times: a batch of 8 where 7 prompts want 10 tokens and 1 wants 500 leaves the GPU running a batch-of-1 for 490 steps. **Continuous (in-flight) batching** operates at the **iteration** level — after every single decode step it evicts finished sequences and admits waiting ones, keeping the running batch full. Combined with PagedAttention (which makes admitting a new sequence cheap), it is the main reason modern LLM servers reach 2–4× the throughput of static batching. The scheduler also separates the compute-bound **prefill** (processing the prompt) from the memory-bound **decode** to avoid a long prompt stalling everyone's token generation.
 
 ---
 

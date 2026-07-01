@@ -102,14 +102,30 @@ Standard text prompts offer poor spatial control over generated compositions. To
 ## 3. Audio & Video Generation
 
 ### 1. Motivation & Intuition
-Audio and video generation expand spatial generation by adding the continuous dimension of **Temporal Progression**.
+Audio and video generation extend spatial generation with the continuous dimension of **temporal progression**, which introduces two hard constraints image models never face: outputs are long sequences (thousands of audio frames, dozens–hundreds of video frames) and they must be **temporally coherent** — a generated car must keep its geometry, color, and trajectory across frames rather than flickering or morphing independently.
 
-* **Audio Systems (Whisper):** Must parse continuous frequency waveforms across extreme variations in room acoustics, background interference, and dialect shifts.
-* **Video Systems:** Must solve **Temporal Consistency**. If a model generates a vehicle moving across a street, the geometry, color, and background tracking must remain coherent from frame to frame rather than morphing independently.
+### 2. Conceptual Foundations: Audio Generation
 
-### 2. Conceptual Foundations
-* **Acoustic Spectrogram Mapping:** Raw 1D audio waveforms contain hundreds of thousands of samples per second. Models transform these waveforms into 2D **Log-Mel Spectrograms**—visual heatmaps representing time on the X-axis and frequency bands on the Y-axis. This allows standard computer vision backbones to process audio data.
-* **Temporal Attention Modules:** Standard spatial attention computes relationships across a 2D matrix ($H \times W$). Video generation backbones insert **1D Temporal Attention** layers immediately following spatial attention blocks. These temporal layers compute attention weights across the exact same spatial coordinate coordinate $(x, y)$ spanning across sequential time frames $F$, mathematically anchoring object identity through time.
+Audio generation is almost always **two-stage**: a model predicts a compact intermediate representation, and a **vocoder** renders it to a waveform. Predicting 24,000 raw samples per second directly is intractable, so the intermediate is either a spectrogram or discrete audio tokens.
+
+* **Text-to-Speech (TTS) — the mel pipeline.** An acoustic model (Tacotron 2, FastSpeech 2) maps text/phonemes to a **Log-Mel Spectrogram**; a **neural vocoder** then converts the mel to audio. Autoregressive vocoders (**WaveNet**) model $p(x_t \mid x_{<t})$ sample-by-sample — very high quality but slow; **GAN vocoders (HiFi-GAN)** generate the whole waveform in one non-autoregressive forward pass, giving real-time synthesis. FastSpeech additionally predicts a **duration** per phoneme to align text length to audio length (solving the alignment problem autoregressive TTS struggles with).
+* **Neural audio codecs & token LMs.** Modern systems (**EnCodec**, SoundStream) compress audio into **discrete tokens** via **Residual Vector Quantization (RVQ)** — a stack of codebooks where each quantizes the residual of the previous:
+$$
+z \approx \sum_{q=1}^{Q} e_q, \qquad e_q = \text{Codebook}_q\big(z - \textstyle\sum_{k<q} e_k\big)
+$$
+This turns continuous audio into a sequence of integers, so a **Transformer language model** can generate audio autoregressively exactly like text (**MusicGen**, VALL-E, AudioLM). RVQ's multiple levels trade bitrate for fidelity.
+* **Audio diffusion.** **AudioLDM** runs **latent diffusion on the mel spectrogram** (§2's image-diffusion machinery applied to a 2D time–frequency "image"), conditioned on a CLAP text embedding, then decodes with a vocoder.
+
+### 3. Conceptual Foundations: Video Generation
+
+Video generation is dominated by **diffusion**, extended from images to spacetime. The central problem is temporal consistency, and three design choices address it:
+
+* **Inflated 2D backbones + temporal layers.** Start from a pretrained image diffusion U-Net and **inflate** it: after each spatial attention/conv block, insert a **temporal attention** layer that attends across the frame axis $F$ at a fixed spatial location, anchoring object identity through time. Factorizing into *spatial-then-temporal* attention keeps cost at $O(F \cdot N^2 + N \cdot F^2)$ instead of full 3D attention's $O((F N)^2)$.
+* **Latent video diffusion.** Encode each frame into a latent with a (often temporally-aware) VAE and run diffusion in that compressed spacetime latent — the only way high-resolution, multi-second video is tractable.
+* **Diffusion Transformers (DiT) and spacetime patches (Sora).** Replace the U-Net with a **Transformer over patches**: the video is cut into **spacetime patches** (tubelets spanning a small region across a few frames) that become tokens. This unifies variable resolution/duration/aspect-ratio into one token sequence and **scales** with compute far better than U-Nets — the basis of Sora-class models.
+* **Cascaded generation.** Quality pipelines generate a low-resolution, low-frame-rate clip first, then apply separate **spatial and temporal super-resolution** diffusion stages to upscale and interpolate frames — decoupling "what happens" from "how sharp/smooth."
+
+Conditioning (text, a start image, or a control signal) uses the same **cross-attention** and **classifier-free guidance** mechanisms as image diffusion (§2).
 
 ---
 

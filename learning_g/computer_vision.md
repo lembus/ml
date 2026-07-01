@@ -412,26 +412,40 @@ $$
 
 ## Open-Vocabulary Detection
 
-Classic detectors are locked to a fixed label set (the 80 COCO classes); detecting a new category means re-annotating and retraining. **Open-vocabulary** detectors instead detect arbitrary categories specified by **text at inference time**, by aligning region features with a CLIP-style text encoder.
+Classic detectors are locked to a fixed label set (the 80 COCO classes); detecting a new category means re-annotating and retraining. **Open-vocabulary** detectors instead detect arbitrary categories specified by **text at inference time**.
 
-* **ViLD / RegionCLIP:** distill CLIP's image–text alignment into a detector's region embeddings so each box embedding lives in CLIP space; classify a region by its similarity to text-prompt embeddings (`"a photo of a {category}"`). New classes = new prompts, **zero retraining**.
-* **GLIP:** reformulates detection as **phrase grounding** — given an image and a sentence, localize each phrase — unifying detection and grounding and enabling training on cheap image–caption data.
-* **OWL-ViT:** a ViT with CLIP pretraining and a lightweight detection head; supports both text queries and **image-conditioned** (one-shot) queries.
+**The core mechanism — swap the classifier for text embeddings.** A standard detector's classification head is a learned matrix $W \in \mathbb{R}^{C \times d}$ mapping a region embedding $r$ to $C$ fixed class logits. Open-vocab detection *replaces that matrix* with **text embeddings**: encode each class name through a frozen CLIP text encoder to get $t_c = \text{CLIP}_{\text{txt}}(\text{``a photo of a } c\text{''})$, and score a region by cosine similarity:
 
-The shift mirrors NLP's: from closed classifiers to **promptable, language-conditioned** perception.
+$$
+p(c \mid r) = \frac{\exp\big(\cos(r, t_c)/\tau\big)}{\sum_{c'} \exp\big(\cos(r, t_{c'})/\tau\big)}
+$$
+
+Because the class set is just whatever text you encode, adding a novel category is a new prompt — **zero retraining**. The research problem is making region embeddings $r$ live in the same space as CLIP text; the approaches differ in how:
+
+* **ViLD / RegionCLIP:** train the detector's region head to **distill** CLIP — a region embedding is supervised to match the CLIP *image* embedding of that cropped box, transferring CLIP's open-vocab alignment into region features while keeping a fast detector at inference.
+* **GLIP:** reframes detection as **phrase grounding**. Instead of classifying regions independently, it takes an image + a text prompt (a sentence or concatenated class names) and predicts an alignment score between each region and each word, with a **word-region contrastive** loss. This unifies detection and grounding and — crucially — lets it train on cheap, abundant **image–caption** data, not just box annotations, scaling the concept vocabulary enormously.
+* **OWL-ViT:** the simplest recipe — take a CLIP-pretrained ViT, attach a lightweight box-regression + classification head, and fine-tune on detection. Its similarity head accepts either **text queries** or an **image exemplar** (one-shot detection: "find more things that look like *this* crop").
+
+The generalization challenge specific to open-vocab is measuring performance on **novel** classes never seen with box labels during training — the whole point is transfer, so the benchmark holds out categories.
 
 ---
 
 ## Segment Anything Model (SAM)
 
-SAM is a **promptable, foundation-scale** segmentation model — the "GPT moment" for masks. Given a point, box, or text-ish prompt, it outputs valid object masks for things it was never explicitly trained on.
+SAM is a **promptable, foundation-scale** segmentation model. Rather than train for a fixed task, it was designed around a **promptable segmentation** objective: given any prompt (point, box, rough mask, or text), return a valid mask — even for ambiguous prompts. This objective is what lets it **zero-shot transfer** to new tasks by prompt engineering, mirroring how LLMs generalize.
 
-**Three components:**
-1. **Image encoder:** a heavy MAE-pretrained ViT, run **once** per image to produce an embedding (expensive but amortized).
-2. **Prompt encoder:** lightweight encoding of points/boxes/masks.
-3. **Mask decoder:** a fast Transformer decoder that fuses image embedding + prompt to emit masks in **milliseconds** — so a user can interactively click around an image with one forward pass of the encoder.
+**Architecture — decoupled for interactivity:**
+1. **Image encoder** — a heavy MAE-pretrained ViT-H producing a dense image embedding. It runs **once per image** (~0.15 s on a GPU) and its output is cached.
+2. **Prompt encoder** — points/boxes become positional encodings summed with learned "foreground/background" embeddings; a rough mask input is embedded via a tiny conv network.
+3. **Mask decoder** — a lightweight two-way Transformer where prompt tokens and image embedding attend to each other, then upsample to a mask. It runs in **~50 ms on CPU**.
 
-**Ambiguity handling:** a single click is ambiguous (a point on a shirt → shirt? person? stripe?), so SAM predicts **3 masks** (whole/part/subpart) with confidence scores. It was trained on **SA-1B** (1.1B masks) via a data engine that bootstrapped annotation with the model itself. SAM is a *class-agnostic* segmenter — pair it with an open-vocab classifier (Grounded-SAM) to get labeled masks.
+The decoupling is the key design choice: the expensive encoder is amortized, so once an image is embedded a user can click around **interactively in real time**, each click re-running only the tiny decoder.
+
+**Ambiguity via multi-mask output.** A single click is ambiguous (a point on a shirt → shirt? person? stripe?). Rather than average these into a blurry mask, SAM's decoder emits **3 masks** (roughly whole/part/subpart) each with a predicted **IoU (confidence) score**; training backpropagates loss only through the *best-matching* mask (a minimum-over-masks loss), which cleanly resolves the ambiguity instead of forcing a compromise.
+
+**The data engine (why it generalizes).** SAM was trained on **SA-1B: 1.1B masks over 11M images**, built in three bootstrapping stages — (1) annotators refine model-proposed masks (assisted-manual), (2) the model auto-generates confident masks and humans only fill gaps (semi-automatic), (3) fully automatic mask generation from a point grid. Each stage retrains a stronger model, a data flywheel that produced a dataset far larger than any hand-labeled segmentation set.
+
+**A class-agnostic building block.** SAM outputs masks but **no labels** — it's a promptable *segmenter*, not a *recognizer*. In practice it's composed: an open-vocab detector like GLIP proposes boxes for a text query and feeds them to SAM as box prompts (**Grounded-SAM**), yielding open-vocabulary *labeled* segmentation.
 
 ---
 
