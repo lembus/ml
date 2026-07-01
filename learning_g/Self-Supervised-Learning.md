@@ -297,11 +297,11 @@ The stop-gradient on the target encoder and the EMA update rule (identical to BY
 
 Let $\mathcal{C}$ be the set of unmasked context patch indices and $\{B_1, \ldots, B_K\}$ be the $K$ target block regions. The context encoder produces:
 
-$$Z_\mathcal{C} = f_\theta\!\left(x_\mathcal{C}\right)$$
+$$Z_{\mathcal{C}} = f_\theta\!\left(x_{\mathcal{C}}\right)$$
 
 For each target block $B_k$, the predictor generates a predicted representation using context embeddings and positional queries for the target positions:
 
-$$\hat{z}_{B_k} = g_\phi\!\left(Z_\mathcal{C},\; \text{pos}(B_k)\right)$$
+$$\hat{z}_{B_k} = g_\phi\!\left(Z_{\mathcal{C}},\; \text{pos}(B_k)\right)$$
 
 The target encoder provides ground-truth representations:
 

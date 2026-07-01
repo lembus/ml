@@ -774,9 +774,9 @@ This works because the multilingual model maps semantically equivalent expressio
 In a shared multilingual vocabulary, high-resource languages (English, French, German) dominate the vocabulary space, leaving low-resource languages severely under-represented. A 100-character English word may tokenize into 2 tokens; the same concept in Yoruba may tokenize into 15+ tokens due to lack of common subwords — consuming disproportionate context window space and degrading model performance for those languages.
 
 ### Mathematical Formulation: Cross-Lingual Alignment
-Define language-specific sentence encoders $f_\text{EN}$ and $f_\text{DE}$ for English and German respectively. Cross-lingual alignment requires that semantically equivalent sentences $s_\text{EN}$ and $s_\text{DE}$ (translations of each other) produce geometrically proximate representations:
+Define language-specific sentence encoders $f_{\text{EN}}$ and $f_{\text{DE}}$ for English and German respectively. Cross-lingual alignment requires that semantically equivalent sentences $s_{\text{EN}}$ and $s_{\text{DE}}$ (translations of each other) produce geometrically proximate representations:
 
-$$||f(s_\text{EN}) - f(s_\text{DE})||_2 \leq \epsilon$$
+$$||f(s_{\text{EN}}) - f(s_{\text{DE}})||_2 \leq \epsilon$$
 
 Multilingual models achieve this implicitly through shared weight parameters and shared vocabulary. **LASER** achieves it explicitly by training a shared LSTM encoder on parallel corpora with a translation objective, directly optimizing for cross-lingual embedding alignment across 93 languages.
 
